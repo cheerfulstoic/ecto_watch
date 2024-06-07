@@ -8,26 +8,26 @@ defmodule EctoWatch do
       :inserted ->
         if(id, do: raise("Cannot subscribe to id for inserted records"))
 
-        Phoenix.PubSub.subscribe(pubsub_mod, "crudy:#{schema_mod.__schema__(:source)}:inserts")
+        Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:inserts")
 
       :updated ->
         if id do
           Phoenix.PubSub.subscribe(
             pubsub_mod,
-            "crudy:#{schema_mod.__schema__(:source)}:updates:#{id}"
+            "ecto_watch:#{schema_mod.__schema__(:source)}:updates:#{id}"
           )
         else
-          Phoenix.PubSub.subscribe(pubsub_mod, "crudy:#{schema_mod.__schema__(:source)}:updates")
+          Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:updates")
         end
 
       :deleted ->
         if id do
           Phoenix.PubSub.subscribe(
             pubsub_mod,
-            "crudy:#{schema_mod.__schema__(:source)}:deletes:#{id}"
+            "ecto_watch:#{schema_mod.__schema__(:source)}:deletes:#{id}"
           )
         else
-          Phoenix.PubSub.subscribe(pubsub_mod, "crudy:#{schema_mod.__schema__(:source)}:deletes")
+          Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:deletes")
         end
 
       other ->
@@ -74,33 +74,33 @@ defmodule EctoWatch do
       "insert" ->
         Phoenix.PubSub.broadcast(
           state.pubsub_mod,
-          "crudy:#{schema_mod.__schema__(:source)}:inserts",
+          "ecto_watch:#{schema_mod.__schema__(:source)}:inserts",
           {:inserted, schema_mod, id}
         )
 
       "update" ->
         Phoenix.PubSub.broadcast(
           state.pubsub_mod,
-          "crudy:#{schema_mod.__schema__(:source)}:updates",
+          "ecto_watch:#{schema_mod.__schema__(:source)}:updates",
           {:updated, schema_mod, id}
         )
 
         Phoenix.PubSub.broadcast(
           state.pubsub_mod,
-          "crudy:#{schema_mod.__schema__(:source)}:updates:#{id}",
+          "ecto_watch:#{schema_mod.__schema__(:source)}:updates:#{id}",
           {:updated, schema_mod, id}
         )
 
       "delete" ->
         Phoenix.PubSub.broadcast(
           state.pubsub_mod,
-          "crudy:#{schema_mod.__schema__(:source)}:deletes",
+          "ecto_watch:#{schema_mod.__schema__(:source)}:deletes",
           {:deleted, schema_mod, id}
         )
 
         Phoenix.PubSub.broadcast(
           state.pubsub_mod,
-          "crudy:#{schema_mod.__schema__(:source)}:deletes:#{id}",
+          "ecto_watch:#{schema_mod.__schema__(:source)}:deletes:#{id}",
           {:deleted, schema_mod, id}
         )
     end
@@ -116,7 +116,7 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE FUNCTION crudy_#{table_name}_notify_inserted()
+      CREATE OR REPLACE FUNCTION ecto_watch_#{table_name}_notify_inserted()
         RETURNS trigger AS $trigger$
         DECLARE
           payload TEXT;
@@ -134,7 +134,7 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE FUNCTION crudy_#{table_name}_notify_updated()
+      CREATE OR REPLACE FUNCTION ecto_watch_#{table_name}_notify_updated()
         RETURNS trigger AS $trigger$
         DECLARE
           payload TEXT;
@@ -152,7 +152,7 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE FUNCTION crudy_#{table_name}_notify_deleted()
+      CREATE OR REPLACE FUNCTION ecto_watch_#{table_name}_notify_deleted()
         RETURNS trigger AS $trigger$
         DECLARE
           payload TEXT;
@@ -170,9 +170,9 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE TRIGGER crudy_#{table_name}_inserted_trigger
+      CREATE OR REPLACE TRIGGER ecto_watch_#{table_name}_inserted_trigger
         AFTER INSERT ON #{table_name} FOR EACH ROW
-        EXECUTE PROCEDURE crudy_#{table_name}_notify_inserted();
+        EXECUTE PROCEDURE ecto_watch_#{table_name}_notify_inserted();
       """,
       []
     )
@@ -180,9 +180,9 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE TRIGGER crudy_#{table_name}_updated_trigger
+      CREATE OR REPLACE TRIGGER ecto_watch_#{table_name}_updated_trigger
         AFTER UPDATE ON #{table_name} FOR EACH ROW
-        EXECUTE PROCEDURE crudy_#{table_name}_notify_updated();
+        EXECUTE PROCEDURE ecto_watch_#{table_name}_notify_updated();
       """,
       []
     )
@@ -190,9 +190,9 @@ defmodule EctoWatch do
     Ecto.Adapters.SQL.query!(
       repo,
       """
-      CREATE OR REPLACE TRIGGER crudy_#{table_name}_deleted_trigger
+      CREATE OR REPLACE TRIGGER ecto_watch_#{table_name}_deleted_trigger
         AFTER DELETE ON #{table_name} FOR EACH ROW
-        EXECUTE PROCEDURE crudy_#{table_name}_notify_deleted();
+        EXECUTE PROCEDURE ecto_watch_#{table_name}_notify_deleted();
       """,
       []
     )
@@ -201,6 +201,6 @@ defmodule EctoWatch do
   end
 
   def channel_name(schema_mod) do
-    "crudy_#{schema_mod.__schema__(:source)}_changed"
+    "ecto_watch_#{schema_mod.__schema__(:source)}_changed"
   end
 end
