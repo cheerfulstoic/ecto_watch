@@ -6,8 +6,19 @@ defmodule EctoWatch.MixProject do
       app: :ecto_watch,
       version: "0.1.0",
       elixir: "~> 1.10",
+      description: "EctoWatch allows you to easily get Phoenix.PubSub notifications directly from postgresql.",
+      licenses: ["MIT"],
+      package: package(),
       start_permanent: Mix.env() == :prod,
       deps: deps()
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Brian Underwood"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/cheerfulstoic/ecto_watch"}
     ]
   end
 
