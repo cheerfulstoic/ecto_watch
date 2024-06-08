@@ -79,7 +79,16 @@ defmodule EctoWatchTest do
         []
       )
 
-    start_supervised!({EctoWatch, {TestRepo, TestPubSub, [Thing]}})
+    start_supervised!(
+      {EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :inserted},
+         {Thing, :updated},
+         {Thing, :deleted}
+       ]}
+    )
 
     [
       already_existing_id1: already_existing_id1,
@@ -88,6 +97,155 @@ defmodule EctoWatchTest do
   end
 
   describe "argument validation" do
+    test "require valid repo" do
+      assert_raise ArgumentError, ~r/required :repo option not found/, fn ->
+        EctoWatch.start_link(
+          pub_sub: TestPubSub,
+          watchers: [
+            {Thing, :inserted}
+          ]
+        )
+      end
+
+      assert_raise ArgumentError, ~r/invalid value for :repo option: 321 was not an atom/, fn ->
+        EctoWatch.start_link(
+          repo: 321,
+          pub_sub: TestPubSub,
+          watchers: [
+            {Thing, :inserted}
+          ]
+        )
+      end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :repo option: NotARunningRepo was not a currently running ecto repo/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: NotARunningRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :inserted}
+                       ]
+                     )
+                   end
+    end
+
+    test "require valid pubsub" do
+      assert_raise ArgumentError, ~r/required :pub_sub option not found/, fn ->
+        EctoWatch.start_link(
+          repo: TestRepo,
+          watchers: [
+            {Thing, :inserted}
+          ]
+        )
+      end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :pub_sub option: 123 was not an atom/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: 123,
+                       watchers: [
+                         {Thing, :inserted}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :pub_sub option: NotARunningPubSub was not a currently running Phoenix PubSub module/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: NotARunningPubSub,
+                       watchers: [
+                         {Thing, :inserted}
+                       ]
+                     )
+                   end
+    end
+
+    test "require at least one watcher" do
+      assert_raise ArgumentError, ~r/required :watchers option not found/, fn ->
+        EctoWatch.start_link(
+          repo: TestRepo,
+          pub_sub: TestPubSub
+        )
+      end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: :watchers options should be a list/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: :not_a_list
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: requires at least one watcher/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: []
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {NotASchema, :inserted}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :bad_update_type}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :inserted, [], :blah}
+                       ]
+                     )
+                   end
+    end
+
+    # valid pubsub
+    # at least one watcher
+    # watcher validations
+
     test "requires one of three arguments" do
       assert_raise ArgumentError,
                    "Unexpected subscription event: :something_else.  Expected :inserted, :updated, or :deleted",

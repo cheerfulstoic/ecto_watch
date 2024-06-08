@@ -79,6 +79,13 @@ Once a process is subscribed messages can be handled like so (LiveView example g
   end
 ```
 
+## Example use-cases
+
+ * Updating LiveView in real-time
+ * Sending emails when a record is updated
+ * Updating a cache when a record is updated
+ * Sending a webhook request to inform another system about a change
+
 ## Notes
 
 ### Why only send the id and not the full record?

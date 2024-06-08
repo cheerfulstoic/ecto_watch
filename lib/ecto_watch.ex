@@ -8,7 +8,10 @@ defmodule EctoWatch do
       :inserted ->
         if(id, do: raise("Cannot subscribe to id for inserted records"))
 
-        Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:inserts")
+        Phoenix.PubSub.subscribe(
+          pubsub_mod,
+          "ecto_watch:#{schema_mod.__schema__(:source)}:inserts"
+        )
 
       :updated ->
         if id do
@@ -17,7 +20,10 @@ defmodule EctoWatch do
             "ecto_watch:#{schema_mod.__schema__(:source)}:updates:#{id}"
           )
         else
-          Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:updates")
+          Phoenix.PubSub.subscribe(
+            pubsub_mod,
+            "ecto_watch:#{schema_mod.__schema__(:source)}:updates"
+          )
         end
 
       :deleted ->
@@ -27,7 +33,10 @@ defmodule EctoWatch do
             "ecto_watch:#{schema_mod.__schema__(:source)}:deletes:#{id}"
           )
         else
-          Phoenix.PubSub.subscribe(pubsub_mod, "ecto_watch:#{schema_mod.__schema__(:source)}:deletes")
+          Phoenix.PubSub.subscribe(
+            pubsub_mod,
+            "ecto_watch:#{schema_mod.__schema__(:source)}:deletes"
+          )
         end
 
       other ->
@@ -36,32 +45,88 @@ defmodule EctoWatch do
     end
   end
 
-  def start_link({repo, pubsub_mod, schema_mods}) do
-    GenServer.start_link(__MODULE__, {repo, pubsub_mod, schema_mods}, name: __MODULE__)
+  def start_link(opts) do
+    case EctoWatch.Options.validate(opts) do
+      {:ok, validated_opts} ->
+        GenServer.start_link(__MODULE__, validated_opts, name: __MODULE__)
+
+      {:error, errors} ->
+        raise ArgumentError, "Invalid options: #{Exception.message(errors)}"
+    end
   end
 
-  def init({repo, pubsub_mod, schema_mods}) do
+  def init(opts) do
     # TODO:
     # Allow passing in options specific to Postgrex.Notifications.start_link/1
     # https://hexdocs.pm/postgrex/Postgrex.Notifications.html#start_link/1
-    {:ok, notifications_pid} = Postgrex.Notifications.start_link(repo.config())
-    Enum.each(schema_mods, &setup_for_schema_mod(repo, &1, notifications_pid))
+    options = EctoWatch.Options.new(opts)
+
+    {:ok, notifications_pid} = Postgrex.Notifications.start_link(options.repo_mod.config())
 
     schema_mods_by_channel =
-      Map.new(schema_mods, fn schema_mod ->
-        {channel_name(schema_mod), schema_mod}
+      Map.new(options.watchers, fn watcher ->
+        table_name = watcher.schema_mod.__schema__(:source)
+        # channel_name = channel_name(schema_mod)
+        channel_name = "ecto_watch_#{table_name}_changed"
+
+        function_name = "ecto_watch_#{table_name}_notify_#{watcher.update_type}"
+
+        update_keyword =
+          case watcher.update_type do
+            :inserted -> "INSERT"
+            :updated -> "UPDATE"
+            :deleted -> "DELETE"
+          end
+
+        Ecto.Adapters.SQL.query!(
+          options.repo_mod,
+          """
+          CREATE OR REPLACE FUNCTION #{function_name}()
+            RETURNS trigger AS $trigger$
+            DECLARE
+              payload TEXT;
+            BEGIN
+              payload := jsonb_build_object('type','#{watcher.update_type}','id',COALESCE(OLD.id, NEW.id));
+              PERFORM pg_notify('#{channel_name}', payload);
+
+              RETURN NEW;
+            END;
+            $trigger$ LANGUAGE plpgsql;
+          """,
+          []
+        )
+
+        Ecto.Adapters.SQL.query!(
+          options.repo_mod,
+          """
+          CREATE OR REPLACE TRIGGER ecto_watch_#{table_name}_#{watcher.update_type}_trigger
+            AFTER #{update_keyword} ON #{table_name} FOR EACH ROW
+            EXECUTE PROCEDURE #{function_name}();
+          """,
+          []
+        )
+
+        {channel_name, watcher.schema_mod}
       end)
+
+    options.watchers
+    |> Enum.map(& &1.schema_mod.__schema__(:source))
+    |> Enum.uniq()
+    |> Enum.each(fn table_name ->
+      channel_name = "ecto_watch_#{table_name}_changed"
+
+      {:ok, _notifications_ref} = Postgrex.Notifications.listen(notifications_pid, channel_name)
+    end)
 
     {:ok,
      %{
-       repo: repo,
-       pubsub_mod: pubsub_mod,
+       options: options,
        schema_mods_by_channel: schema_mods_by_channel
      }}
   end
 
   def handle_call(:get_pubsub_mod, _from, state) do
-    {:reply, state.pubsub_mod, state}
+    {:reply, state.options.pub_sub_mod, state}
   end
 
   def handle_info({:notification, _pid, _ref, channel, payload}, state) do
@@ -71,35 +136,35 @@ defmodule EctoWatch do
     id = data["id"]
 
     case data["type"] do
-      "insert" ->
+      "inserted" ->
         Phoenix.PubSub.broadcast(
-          state.pubsub_mod,
+          state.options.pub_sub_mod,
           "ecto_watch:#{schema_mod.__schema__(:source)}:inserts",
           {:inserted, schema_mod, id}
         )
 
-      "update" ->
+      "updated" ->
         Phoenix.PubSub.broadcast(
-          state.pubsub_mod,
+          state.options.pub_sub_mod,
           "ecto_watch:#{schema_mod.__schema__(:source)}:updates",
           {:updated, schema_mod, id}
         )
 
         Phoenix.PubSub.broadcast(
-          state.pubsub_mod,
+          state.options.pub_sub_mod,
           "ecto_watch:#{schema_mod.__schema__(:source)}:updates:#{id}",
           {:updated, schema_mod, id}
         )
 
-      "delete" ->
+      "deleted" ->
         Phoenix.PubSub.broadcast(
-          state.pubsub_mod,
+          state.options.pub_sub_mod,
           "ecto_watch:#{schema_mod.__schema__(:source)}:deletes",
           {:deleted, schema_mod, id}
         )
 
         Phoenix.PubSub.broadcast(
-          state.pubsub_mod,
+          state.options.pub_sub_mod,
           "ecto_watch:#{schema_mod.__schema__(:source)}:deletes:#{id}",
           {:deleted, schema_mod, id}
         )
