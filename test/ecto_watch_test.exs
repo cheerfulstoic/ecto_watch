@@ -1,6 +1,8 @@
 defmodule EctoWatchTest do
   use ExUnit.Case, async: true
 
+  # TODO: Long module names (testing for limits of postgres labels)
+
   defmodule Thing do
     use Ecto.Schema
 
@@ -239,7 +241,8 @@ defmodule EctoWatchTest do
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
-                         {Thing, :inserted, columns: [:the_string, :the_float]}
+                         {Thing, :inserted,
+                          label: :thing_custom_event, columns: [:the_string, :the_float]}
                        ]
                      )
                    end
@@ -253,7 +256,7 @@ defmodule EctoWatchTest do
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
-                         {Thing, :updated, columns: []}
+                         {Thing, :updated, label: :thing_custom_event, columns: []}
                        ]
                      )
                    end
@@ -268,7 +271,22 @@ defmodule EctoWatchTest do
                        pub_sub: TestPubSub,
                        watchers: [
                          {Thing, :updated,
+                          label: :thing_custom_event,
                           columns: [:the_string, :not_a_column, :the_float, :another_bad_column]}
+                       ]
+                     )
+                   end
+    end
+
+    test "label must be specified if columns is specified" do
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :columns option: Label must be used when columns are specified/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :updated, columns: [:the_string, :the_float]}
                        ]
                      )
                    end
@@ -291,7 +309,7 @@ defmodule EctoWatchTest do
       )
 
       assert_raise ArgumentError,
-                   ~r/Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
+                   ~r/No watcher found for NotASchema \/ :updated/,
                    fn ->
                      EctoWatch.subscribe(NotASchema, :updated)
                    end
@@ -421,26 +439,26 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :updated, columns: [:the_integer, :the_float]}
+           {Thing, :updated, label: :thing_custom_event, columns: [:the_integer, :the_float]}
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+      EctoWatch.subscribe(:thing_custom_event, :updated, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, already_existing_id1}
-      refute_receive {:updated, Thing, already_existing_id2}
+      refute_receive {:updated, _, already_existing_id1}
+      refute_receive {:updated, _, already_existing_id2}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999", [])
 
-      assert_receive {:updated, Thing, already_existing_id1}
-      refute_receive {:updated, Thing, already_existing_id2}
+      assert_receive {:updated, :thing_custom_event, already_existing_id1}
+      refute_receive {:updated, _, already_existing_id2}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
 
-      assert_receive {:updated, Thing, already_existing_id1}
-      refute_receive {:updated, Thing, already_existing_id2}
+      assert_receive {:updated, :thing_custom_event, already_existing_id1}
+      refute_receive {:updated, _, already_existing_id2}
     end
 
     test "no notifications without subscribe", %{

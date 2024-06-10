@@ -37,8 +37,12 @@ defmodule EctoWatch.WatcherOptions do
         type: {:in, ~w[inserted updated deleted]a},
         required: true
       ],
+      label: [
+        type: :atom,
+        required: false
+      ],
       columns: [
-        type: {:custom, __MODULE__, :validate_columns, [schema_mod, update_type]},
+        type: {:custom, __MODULE__, :validate_columns, [opts[:label], schema_mod, update_type]},
         required: false
       ]
     ]
@@ -46,30 +50,6 @@ defmodule EctoWatch.WatcherOptions do
     with {:error, error} <- NimbleOptions.validate(opts, schema) do
       {:error, Exception.message(error)}
     end
-
-    #     if EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) do
-    #       if update_type in [:inserted, :updated, :deleted] do
-    #         if opts[:columns] do
-    #           if update_type == :updated do
-    #             schema_fields = schema_mod.__schema__(:fields)
-    #             Enum.reject(opts[:columns], & &1 in schema_fields)
-    #             |> case do
-    #               [] ->
-    #                 {:ok, {schema_mod, update_type}}
-
-    #               extra_fields ->
-    #                 {:error, "Invalid columns for #{inspect(schema_mod)}: #{inspect(extra_fields)}"}
-    #             end
-    #           else
-    #             {:error, "Cannot listen to columns for #{update_type} events."}
-    #           end
-    #         end
-    #       else
-    #         {:error, "Unexpected update_type to be one of :inserted, :updated, or :deleted. Got: #{inspect(update_type)}"}
-    #       end
-    #     else
-    #       {:error, "Expected schema_mod to be an Ecto schema module. Got: #{inspect(schema_mod)}"}
-    #     end
   end
 
   def validate(other) do
@@ -85,11 +65,15 @@ defmodule EctoWatch.WatcherOptions do
     end
   end
 
-  def validate_schema_mod(schema_mod), do: {:error, "should be an atom"}
+  def validate_schema_mod(_), do: {:error, "should be an atom"}
 
-  def validate_columns([], _, _), do: {:error, "List must not be empty"}
+  def validate_columns([], _label, _schema_mod, _update_type),
+    do: {:error, "List must not be empty"}
 
-  def validate_columns(columns, schema_mod, :updated) do
+  def validate_columns(_columns, nil, _schema_mod, _update_type),
+    do: {:error, "Label must be used when columns are specified"}
+
+  def validate_columns(columns, _label, schema_mod, :updated) do
     schema_fields = schema_mod.__schema__(:fields)
 
     Enum.reject(columns, &(&1 in schema_fields))
@@ -102,7 +86,7 @@ defmodule EctoWatch.WatcherOptions do
     end
   end
 
-  def validate_columns(columns, schema_mod, update_type) do
+  def validate_columns(_columns, _label, _schema_mod, update_type) do
     {:error, "Cannot listen to columns for `#{update_type}` events."}
   end
 

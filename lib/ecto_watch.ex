@@ -3,45 +3,38 @@ defmodule EctoWatch do
 
   use Supervisor
 
-  def subscribe(schema_mod, update_type, id \\ nil) do
+  def subscribe(schema_mod_or_label, update_type, id \\ nil) do
     if !Process.whereis(__MODULE__) do
       raise "EctoWatch is not running. Please start it by adding it to your supervision tree or using EctoWatch.start_link/1"
     end
 
-    pubsub_mod = Agent.get(:pub_sub_mod_agent, fn pub_sub_mod -> pub_sub_mod end)
-
-    case check_subscription_args(schema_mod, update_type, id) do
+    with :ok <- check_update_args(update_type, id),
+         {:ok, {pub_sub_mod, channel_name}} <-
+           WatcherServer.pub_sub_subscription_details(schema_mod_or_label, update_type, id) do
+      Phoenix.PubSub.subscribe(pub_sub_mod, channel_name)
+    else
       {:error, error} ->
         raise ArgumentError, error
-
-      :ok ->
-        pub_sub_channel_name = WatcherServer.pub_sub_channel(schema_mod, update_type, id)
-
-        Phoenix.PubSub.subscribe(pubsub_mod, pub_sub_channel_name)
     end
   end
 
-  def check_subscription_args(schema_mod, update_type, id) do
-    if EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) do
-      case {update_type, id} do
-        {:inserted, nil} ->
-          :ok
+  def check_update_args(update_type, id) do
+    case {update_type, id} do
+      {:inserted, nil} ->
+        :ok
 
-        {:inserted, _} ->
-          {:error, "Cannot subscribe to id for inserted records"}
+      {:inserted, _} ->
+        {:error, "Cannot subscribe to id for inserted records"}
 
-        {:updated, _} ->
-          :ok
+      {:updated, _} ->
+        :ok
 
-        {:deleted, _} ->
-          :ok
+      {:deleted, _} ->
+        :ok
 
-        {other, _} ->
-          {:error,
-           "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
-      end
-    else
-      {:error, "Expected schema_mod to be an Ecto schema module. Got: #{inspect(schema_mod)}"}
+      {other, _} ->
+        {:error,
+         "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
     end
   end
 
@@ -67,10 +60,6 @@ defmodule EctoWatch do
       |> Keyword.put(:name, :ecto_watch_postgrex_notifications)
 
     children = [
-      %{
-        id: :pub_sub_mod_agent,
-        start: {Agent, :start_link, [fn -> options.pub_sub_mod end, [name: :pub_sub_mod_agent]]}
-      },
       {Postgrex.Notifications, postgrex_notifications_options},
       {EctoWatch.WatcherSupervisor, options}
     ]
