@@ -23,16 +23,22 @@ EctoWatch solves these problems by getting updates directly from postgresql.  Th
 To use EctoWatch, you need to add it to your supervision tree and specify the ecto schemas that you want to monitor.  You can do this by adding something like the following to your `application.ex` file (after your `MyApp.Repo` and `MyApp.PubSub` are loaded):
 
 ```elixir
-  {EctoWatch, {MyApp.Repo, MyApp.PubSub, [
-    MyApp.Accounts.User,
-    {MyApp.Shipping.Package, [:inserted, :updated]}
-  ]}},
+  {EctoWatch,
+   repo: MyApp.Repo,
+   pub_sub: MyApp.PubSub,
+   watchers: [
+     {MyApp.Accounts.User, :inserted},
+     {MyApp.Accounts.User, :updated},
+     {MyApp.Accounts.User, :deleted},
+     {MyApp.Shipping.Package, :inserted},
+     {MyApp.Shipping.Package, :updated}
+   ]}
 ```
 
 This will setup:
 
  * triggers in postgresql on application startup
- * an Elixir process which listens for notifications and broadcasts them via `Phoenix.PubSub`
+ * an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
 
 Then any process (e.g. a GenServer, a LiveView, or a Phoenix channel) can subscribe to messages like so:
 
@@ -120,6 +126,7 @@ Disabling the triggers can lock the table in a transaction and so should be used
    * allow specifying a condition for when the trigger should fire
    * allow specifying which columns the trigger should be run on
  * Creating a batch-processing GenServer to reduce queries to the database.
+ * Make watchers more generic (?).  Don't need dependency on PubSub, but could make it an adapter or something
 
 ## Installation
 
