@@ -231,6 +231,35 @@ defmodule EctoWatchTest do
                    end
     end
 
+    test "columns option only allowed for `updated`" do
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: Cannot subscribe to columns for inserted events./,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :inserted, columns: [:the_string, :the_float]}
+                       ]
+                     )
+                   end
+    end
+
+    test "columns must be in schema" do
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :updated,
+                          columns: [:the_string, :not_a_column, :the_float, :another_bad_column]}
+                       ]
+                     )
+                   end
+    end
+
     test "subscribe returns error if EctoWatch hasn't been started" do
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
         EctoWatch.subscribe(Thing, :updated)
@@ -276,37 +305,6 @@ defmodule EctoWatchTest do
                      EctoWatch.subscribe(Thing, 1234)
                    end
     end
-
-    #     test "columns option only allowed for `updated`" do
-    #       assert_raise ArgumentError,
-    #                    ":columns option only allowed for `:updated`",
-    #                    fn ->
-    #                      start_supervised!(
-    #                        {EctoWatch,
-    #                         repo: TestRepo,
-    #                         pub_sub: TestPubSub,
-    #                         watchers: [
-    #                           {Thing, :inserted, columns: [:the_string, :the_float]}
-    #                         ]}
-    #                      )
-    #                    end
-
-    #       assert_raise ArgumentError,
-    #                    ":columns option only allowed for `:updated`",
-    #                    fn ->
-    #                      start_supervised!(
-    #                        {EctoWatch,
-    #                         repo: TestRepo,
-    #                         pub_sub: TestPubSub,
-    #                         watchers: [
-    #                           {Thing, :deleted, columns: [:the_string, :the_float]}
-    #                         ]}
-    #                      )
-    #                    end
-
-    #     end
-
-    # TODO: test that columns option is validated
   end
 
   describe "inserts" do

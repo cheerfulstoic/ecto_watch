@@ -25,7 +25,22 @@ defmodule EctoWatch.WatcherOptions do
   def validate({schema_mod, update_type, opts}) do
     if EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) do
       if update_type in [:inserted, :updated, :deleted] do
-        {:ok, {schema_mod, update_type}}
+        if opts[:columns] do
+          if update_type == :updated do
+            schema_fields = schema_mod.__schema__(:fields)
+
+            Enum.reject(opts[:columns], &(&1 in schema_fields))
+            |> case do
+              [] ->
+                {:ok, {schema_mod, update_type}}
+
+              extra_fields ->
+                {:error, "Invalid columns for #{inspect(schema_mod)}: #{inspect(extra_fields)}"}
+            end
+          else
+            {:error, "Cannot subscribe to columns for #{update_type} events."}
+          end
+        end
       else
         {:error,
          "Unexpected update_type to be one of :inserted, :updated, or :deleted. Got: #{inspect(update_type)}"}
