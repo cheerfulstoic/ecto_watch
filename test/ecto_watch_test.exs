@@ -163,7 +163,7 @@ defmodule EctoWatchTest do
       end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: :watchers options should be a list/,
+                   ~r/Invalid options: invalid value for :watchers option: should be a list/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -183,7 +183,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   ~r/invalid value for :watchers option: Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -195,7 +195,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   ~r/invalid value for :watchers option: Unexpected update_type to be one of :inserted, :updated, or :deleted. Got: :bad_update_type/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -207,7 +207,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   ~r/invalid value for :watchers option: should be either `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`.  Got: {EctoWatchTest.Thing}/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -219,7 +219,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: :watchers items should either be `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`/,
+                   ~r/invalid value for :watchers option: should be either `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`.  Got: {EctoWatchTest.Thing, :inserted, \[\], :blah}/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -276,6 +276,37 @@ defmodule EctoWatchTest do
                      EctoWatch.subscribe(Thing, 1234)
                    end
     end
+
+    #     test "columns option only allowed for `updated`" do
+    #       assert_raise ArgumentError,
+    #                    ":columns option only allowed for `:updated`",
+    #                    fn ->
+    #                      start_supervised!(
+    #                        {EctoWatch,
+    #                         repo: TestRepo,
+    #                         pub_sub: TestPubSub,
+    #                         watchers: [
+    #                           {Thing, :inserted, columns: [:the_string, :the_float]}
+    #                         ]}
+    #                      )
+    #                    end
+
+    #       assert_raise ArgumentError,
+    #                    ":columns option only allowed for `:updated`",
+    #                    fn ->
+    #                      start_supervised!(
+    #                        {EctoWatch,
+    #                         repo: TestRepo,
+    #                         pub_sub: TestPubSub,
+    #                         watchers: [
+    #                           {Thing, :deleted, columns: [:the_string, :the_float]}
+    #                         ]}
+    #                      )
+    #                    end
+
+    #     end
+
+    # TODO: test that columns option is validated
   end
 
   describe "inserts" do
