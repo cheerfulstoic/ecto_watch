@@ -5,7 +5,7 @@ defmodule EctoWatch do
 
   def subscribe(schema_mod, update_type, id \\ nil) do
     if !Process.whereis(__MODULE__) do
-      raise "EctoWatch is not running.  Please start it by adding it to your supervision tree or using EctoWatch.start_link/1"
+      raise "EctoWatch is not running. Please start it by adding it to your supervision tree or using EctoWatch.start_link/1"
     end
 
     pubsub_mod = Agent.get(:pub_sub_mod_agent, fn pub_sub_mod -> pub_sub_mod end)
@@ -21,17 +21,26 @@ defmodule EctoWatch do
     end
   end
 
-  def check_subscription_args(schema_mod, :inserted, id) when not is_nil(id) do
-    {:error, "Cannot subscribe to id for inserted records"}
+  def check_subscription_args(schema_mod, update_type, id) do
+    if is_ecto_schema_mod?(schema_mod) do
+      case {update_type, id} do
+        {:inserted, nil} -> :ok
+        {:inserted, _} -> {:error, "Cannot subscribe to id for inserted records"}
+        {:updated, _} -> :ok
+        {:deleted, _} -> :ok
+        {other, _} -> {:error, "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
+      end
+    else
+      {:error, "Expected schema_mod to be an Ecto schema module. Got: #{inspect(schema_mod)}"}
+    end
   end
 
-  def check_subscription_args(schema_mod, :inserted, _), do: :ok
-  def check_subscription_args(schema_mod, :updated, _), do: :ok
-  def check_subscription_args(schema_mod, :deleted, _), do: :ok
+  defp is_ecto_schema_mod?(schema_mod) do
+    schema_mod.__schema__(:fields)
 
-  def check_subscription_args(schema_mod, other, _) do
-    {:error,
-     "Unexpected subscription event: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
+    true
+  rescue
+    UndefinedFunctionError -> false
   end
 
   def start_link(opts) do

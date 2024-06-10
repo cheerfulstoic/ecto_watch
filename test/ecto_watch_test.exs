@@ -231,13 +231,24 @@ defmodule EctoWatchTest do
                    end
     end
 
-    # valid pubsub
-    # at least one watcher
-    # watcher validations
-
     test "subscribe returns error if EctoWatch hasn't been started" do
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
         EctoWatch.subscribe(Thing, :updated)
+      end
+    end
+
+    test "subscribe requires proper Ecto schema" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated}
+         ]}
+      )
+
+      assert_raise ArgumentError, ~r/Expected schema_mod to be an Ecto schema module. Got: NotASchema/, fn ->
+        EctoWatch.subscribe(NotASchema, :updated)
       end
     end
 
@@ -252,13 +263,13 @@ defmodule EctoWatchTest do
       )
 
       assert_raise ArgumentError,
-                   "Unexpected subscription event: :something_else.  Expected :inserted, :updated, or :deleted",
+                   "Unexpected update_type: :something_else.  Expected :inserted, :updated, or :deleted",
                    fn ->
                      EctoWatch.subscribe(Thing, :something_else)
                    end
 
       assert_raise ArgumentError,
-                   "Unexpected subscription event: 1234.  Expected :inserted, :updated, or :deleted",
+                   "Unexpected update_type: 1234.  Expected :inserted, :updated, or :deleted",
                    fn ->
                      EctoWatch.subscribe(Thing, 1234)
                    end
