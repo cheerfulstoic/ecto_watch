@@ -398,6 +398,37 @@ defmodule EctoWatchTest do
       refute_receive {:updated, Thing, already_existing_id2}
     end
 
+    test "columns option", %{
+      already_existing_id1: already_existing_id1,
+      already_existing_id2: already_existing_id2
+    } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated, columns: [:the_integer, :the_float]}
+         ]}
+      )
+
+      EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
+
+      refute_receive {:updated, Thing, already_existing_id1}
+      refute_receive {:updated, Thing, already_existing_id2}
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999", [])
+
+      assert_receive {:updated, Thing, already_existing_id1}
+      refute_receive {:updated, Thing, already_existing_id2}
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
+
+      assert_receive {:updated, Thing, already_existing_id1}
+      refute_receive {:updated, Thing, already_existing_id2}
+    end
+
     test "no notifications without subscribe", %{
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2

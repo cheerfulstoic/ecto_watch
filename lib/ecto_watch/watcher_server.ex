@@ -25,9 +25,20 @@ defmodule EctoWatch.WatcherServer do
 
     update_keyword =
       case watcher_options.update_type do
-        :inserted -> "INSERT"
-        :updated -> "UPDATE"
-        :deleted -> "DELETE"
+        :inserted ->
+          "INSERT"
+
+        :updated ->
+          columns = watcher_options.opts[:columns]
+
+          if columns do
+            "UPDATE OF #{Enum.join(columns, ", ")}"
+          else
+            "UPDATE"
+          end
+
+        :deleted ->
+          "DELETE"
       end
 
     Ecto.Adapters.SQL.query!(
