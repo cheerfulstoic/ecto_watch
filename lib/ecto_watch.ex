@@ -4,6 +4,10 @@ defmodule EctoWatch do
   use Supervisor
 
   def subscribe(schema_mod, update_type, id \\ nil) do
+    if !Process.whereis(__MODULE__) do
+      raise "EctoWatch is not running.  Please start it by adding it to your supervision tree or using EctoWatch.start_link/1"
+    end
+
     pubsub_mod = Agent.get(:pub_sub_mod_agent, fn pub_sub_mod -> pub_sub_mod end)
 
     case check_subscription_args(schema_mod, update_type, id) do
@@ -56,20 +60,18 @@ defmodule EctoWatch do
         id: :pub_sub_mod_agent,
         start: {Agent, :start_link, [fn -> options.pub_sub_mod end, [name: :pub_sub_mod_agent]]}
       },
-      {Postgrex.Notifications, postgrex_notifications_options}
+      {Postgrex.Notifications, postgrex_notifications_options},
+      {EctoWatch.WatcherSupervisor, options}
     ]
 
-    children =
-      children ++
-        Enum.map(options.watchers, fn watcher_options ->
-          %{
-            id: WatcherServer.name(watcher_options),
-            start:
-              {WatcherServer, :start_link,
-               [{options.repo_mod, options.pub_sub_mod, watcher_options}]}
-          }
-        end)
+    # children = children ++
+    #   Enum.map(options.watchers, fn watcher_options ->
+    #     %{
+    #       id: WatcherServer.name(watcher_options),
+    #       start: {WatcherServer, :start_link, [{options.repo_mod, options.pub_sub_mod, watcher_options}]}
+    #     }
+    #   end)
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 end

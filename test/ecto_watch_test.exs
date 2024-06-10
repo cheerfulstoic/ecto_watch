@@ -79,17 +79,6 @@ defmodule EctoWatchTest do
         []
       )
 
-    start_supervised!(
-      {EctoWatch,
-       repo: TestRepo,
-       pub_sub: TestPubSub,
-       watchers: [
-         {Thing, :inserted},
-         {Thing, :updated},
-         {Thing, :deleted}
-       ]}
-    )
-
     [
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
@@ -246,7 +235,22 @@ defmodule EctoWatchTest do
     # at least one watcher
     # watcher validations
 
+    test "subscribe returns error if EctoWatch hasn't been started" do
+      assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
+        EctoWatch.subscribe(Thing, :updated)
+      end
+    end
+
     test "requires one of three arguments" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated}
+         ]}
+      )
+
       assert_raise ArgumentError,
                    "Unexpected subscription event: :something_else.  Expected :inserted, :updated, or :deleted",
                    fn ->
@@ -263,6 +267,15 @@ defmodule EctoWatchTest do
 
   describe "inserts" do
     test "get notification about inserts" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :inserted}
+         ]}
+      )
+
       EctoWatch.subscribe(Thing, :inserted)
 
       Ecto.Adapters.SQL.query!(
@@ -277,6 +290,15 @@ defmodule EctoWatchTest do
     end
 
     test "no notification without subscribe" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :inserted}
+         ]}
+      )
+
       Ecto.Adapters.SQL.query!(
         TestRepo,
         """
@@ -294,6 +316,15 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated}
+         ]}
+      )
+
       EctoWatch.subscribe(Thing, :updated)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
@@ -307,6 +338,15 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated}
+         ]}
+      )
+
       EctoWatch.subscribe(Thing, :updated, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
@@ -333,6 +373,15 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :deleted}
+         ]}
+      )
+
       EctoWatch.subscribe(Thing, :deleted)
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
@@ -346,6 +395,15 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :deleted}
+         ]}
+      )
+
       EctoWatch.subscribe(Thing, :deleted, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
