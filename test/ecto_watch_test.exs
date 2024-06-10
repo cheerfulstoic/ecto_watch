@@ -183,7 +183,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
+                   ~r/invalid value for :watchers option: invalid value for :schema_mod option: Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -195,7 +195,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: Unexpected update_type to be one of :inserted, :updated, or :deleted. Got: :bad_update_type/,
+                   ~r/invalid value for :watchers option: invalid value for :update_type option: expected one of \[:inserted, :updated, :deleted\], got: :bad_update_type/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -233,7 +233,7 @@ defmodule EctoWatchTest do
 
     test "columns option only allowed for `updated`" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: Cannot subscribe to columns for inserted events./,
+                   ~r/invalid value for :watchers option: invalid value for :columns option: Cannot listen to columns for `inserted` events./,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -245,9 +245,23 @@ defmodule EctoWatchTest do
                    end
     end
 
+    test "columns must be non-empty" do
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :columns option: List must not be empty/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :updated, columns: []}
+                       ]
+                     )
+                   end
+    end
+
     test "columns must be in schema" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
+                   ~r/invalid value for :watchers option: invalid value for :columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
