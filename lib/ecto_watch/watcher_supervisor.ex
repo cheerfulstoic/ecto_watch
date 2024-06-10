@@ -8,10 +8,6 @@ defmodule EctoWatch.WatcherSupervisor do
   end
 
   def init(options) do
-    postgrex_notifications_options =
-      options.repo_mod.config()
-      |> Keyword.put(:name, :ecto_watch_postgrex_notifications)
-
     children =
       Enum.map(options.watchers, fn watcher_options ->
         %{

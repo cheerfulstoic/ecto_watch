@@ -22,25 +22,27 @@ defmodule EctoWatch do
   end
 
   def check_subscription_args(schema_mod, update_type, id) do
-    if is_ecto_schema_mod?(schema_mod) do
+    if EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) do
       case {update_type, id} do
-        {:inserted, nil} -> :ok
-        {:inserted, _} -> {:error, "Cannot subscribe to id for inserted records"}
-        {:updated, _} -> :ok
-        {:deleted, _} -> :ok
-        {other, _} -> {:error, "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
+        {:inserted, nil} ->
+          :ok
+
+        {:inserted, _} ->
+          {:error, "Cannot subscribe to id for inserted records"}
+
+        {:updated, _} ->
+          :ok
+
+        {:deleted, _} ->
+          :ok
+
+        {other, _} ->
+          {:error,
+           "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
       end
     else
       {:error, "Expected schema_mod to be an Ecto schema module. Got: #{inspect(schema_mod)}"}
     end
-  end
-
-  defp is_ecto_schema_mod?(schema_mod) do
-    schema_mod.__schema__(:fields)
-
-    true
-  rescue
-    UndefinedFunctionError -> false
   end
 
   def start_link(opts) do

@@ -247,9 +247,11 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      assert_raise ArgumentError, ~r/Expected schema_mod to be an Ecto schema module. Got: NotASchema/, fn ->
-        EctoWatch.subscribe(NotASchema, :updated)
-      end
+      assert_raise ArgumentError,
+                   ~r/Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
+                   fn ->
+                     EctoWatch.subscribe(NotASchema, :updated)
+                   end
     end
 
     test "requires one of three arguments" do

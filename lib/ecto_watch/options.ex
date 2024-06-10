@@ -56,16 +56,14 @@ defmodule EctoWatch.Options do
     valid? =
       Enum.all?(watchers, fn
         {schema_mod, update_type} ->
-          valid_ecto_schema_mod?(schema_mod) && valid_update_type?(update_type)
+          EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) && valid_update_type?(update_type)
 
         {schema_mod, update_type, _} ->
-          valid_ecto_schema_mod?(schema_mod) && valid_update_type?(update_type)
+          EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) && valid_update_type?(update_type)
 
         _ ->
           false
       end)
-
-    # Webcrumb.Items.Item.__schema__(:fields)
 
     if valid? do
       {:ok, watchers}
@@ -76,14 +74,6 @@ defmodule EctoWatch.Options do
   end
 
   def check_valid_watchers_list(_), do: {:error, ":watchers options should be a list"}
-
-  defp valid_ecto_schema_mod?(schema_mod) do
-    schema_mod.__schema__(:fields)
-
-    true
-  rescue
-    _ -> false
-  end
 
   defp valid_update_type?(update_type) do
     update_type in [:inserted, :updated, :deleted]
