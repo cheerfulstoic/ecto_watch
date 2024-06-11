@@ -85,6 +85,53 @@ Once a process is subscribed messages can be handled like so (LiveView example g
   end
 ```
 
+## Tracking specific columns and using labels
+
+You can also setup the database to trigger only on specific columns on `:updated` watchers.  When doing this a `label` required:
+
+```elixir
+  # setup
+  {EctoWatch,
+   repo: MyApp.Repo,
+   pub_sub: MyApp.PubSub,
+   watchers: [
+     # ...
+     {MyApp.Accounts.User, :updated, columns: [:email, :phone], label: :user_contact_info},
+     # ...
+   ]}
+
+  # subscribing
+  EctoWatch.subscribe(:user_contact_info, :updated, package.id)
+
+  # handling messages
+  def handle_info({:updated, :user_contact_info, id}, socket) do
+```
+
+A label is required for two reasons:
+
+ * When handling the message it makes it clear that the message isn't for general updates but is for specific columns
+ * The same schema can be watched for different columns, so the label is used to differentiate between them.
+
+You can also use labels in general without tracking specific columns:
+
+```elixir
+  # setup
+  {EctoWatch,
+   repo: MyApp.Repo,
+   pub_sub: MyApp.PubSub,
+   watchers: [
+     # ...
+     {MyApp.Accounts.User, :updated, label: :user_update},
+     # ...
+   ]}
+
+  # subscribing
+  EctoWatch.subscribe(:user_update, :updated, package.id)
+
+  # handling messages
+  def handle_info({:updated, :user_update, id}, socket) do
+```
+
 ## Example use-cases
 
  * Updating LiveView in real-time
@@ -124,7 +171,6 @@ Disabling the triggers can lock the table in a transaction and so should be used
 
  * Support features of `CREATE TRIGGER`:
    * allow specifying a condition for when the trigger should fire
-   * allow specifying which columns the trigger should be run on
  * Creating a batch-processing GenServer to reduce queries to the database.
  * Make watchers more generic (?).  Don't need dependency on PubSub, but could make it an adapter or something
 
