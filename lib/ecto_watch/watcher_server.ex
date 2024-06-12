@@ -49,10 +49,10 @@ defmodule EctoWatch.WatcherServer do
           "INSERT"
 
         :updated ->
-          columns = watcher_options.opts[:columns]
+          trigger_columns = watcher_options.opts[:trigger_columns]
 
-          if columns do
-            "UPDATE OF #{Enum.join(columns, ", ")}"
+          if trigger_columns do
+            "UPDATE OF #{Enum.join(trigger_columns, ", ")}"
           else
             "UPDATE"
           end
@@ -61,15 +61,21 @@ defmodule EctoWatch.WatcherServer do
           "DELETE"
       end
 
+    extra_columns_sql =
+      (watcher_options.opts[:extra_columns] || [])
+      |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
+
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
       CREATE OR REPLACE FUNCTION #{unique_label}_func()
         RETURNS trigger AS $trigger$
         DECLARE
+          row record;
           payload TEXT;
         BEGIN
-          payload := jsonb_build_object('type','#{watcher_options.update_type}','id',COALESCE(OLD.id, NEW.id));
+          row := COALESCE(NEW, OLD);
+          payload := jsonb_build_object('type','#{watcher_options.update_type}','id',row.id,'extra',json_build_object(#{extra_columns_sql}));
           PERFORM pg_notify('#{unique_label}', payload);
 
           RETURN NEW;
@@ -106,40 +112,42 @@ defmodule EctoWatch.WatcherServer do
       raise "Expected to receive message from #{state.unique_label}, but received from #{channel_name}"
     end
 
-    %{"type" => type, "id" => id} = Jason.decode!(payload)
+    %{"type" => type, "id" => id, "extra" => extra} = Jason.decode!(payload)
+
+    extra = Map.new(extra, fn {k, v} -> {String.to_existing_atom(k), v} end)
 
     case type do
       "inserted" ->
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:inserted, state.schema_mod_or_label, id}
+          {:inserted, state.schema_mod_or_label, id, extra}
         )
 
       "updated" ->
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           "#{state.unique_label}:#{id}",
-          {:updated, state.schema_mod_or_label, id}
+          {:updated, state.schema_mod_or_label, id, extra}
         )
 
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:updated, state.schema_mod_or_label, id}
+          {:updated, state.schema_mod_or_label, id, extra}
         )
 
       "deleted" ->
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           "#{state.unique_label}:#{id}",
-          {:deleted, state.schema_mod_or_label, id}
+          {:deleted, state.schema_mod_or_label, id, extra}
         )
 
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:deleted, state.schema_mod_or_label, id}
+          {:deleted, state.schema_mod_or_label, id, extra}
         )
     end
 

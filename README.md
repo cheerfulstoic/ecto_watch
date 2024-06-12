@@ -63,21 +63,21 @@ You can also subscribe to individual records:
 Once a process is subscribed messages can be handled like so (LiveView example given here but `handle_info` callbacks can be used elsewhere as well):
 
 ```elixir
-  def handle_info({:inserted, MyApp.Accounts.User, id}, socket) do
+  def handle_info({:inserted, MyApp.Accounts.User, id, _}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:updated, MyApp.Accounts.User, id}, socket) do
+  def handle_info({:updated, MyApp.Accounts.User, id, _}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:deleted, MyApp.Accounts.User, id}, socket) do
+  def handle_info({:deleted, MyApp.Accounts.User, id, _}, socket) do
     user = Accounts.get_user(id)
     socket = stream_delete(socket, :users, user)
 
@@ -96,7 +96,7 @@ You can also setup the database to trigger only on specific columns on `:updated
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {MyApp.Accounts.User, :updated, columns: [:email, :phone], label: :user_contact_info},
+     {MyApp.Accounts.User, :updated, trigger_columns: [:email, :phone], label: :user_contact_info},
      # ...
    ]}
 
@@ -104,7 +104,7 @@ You can also setup the database to trigger only on specific columns on `:updated
   EctoWatch.subscribe(:user_contact_info, :updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_contact_info, id}, socket) do
+  def handle_info({:updated, :user_contact_info, id, _}, socket) do
 ```
 
 A label is required for two reasons:
@@ -126,10 +126,44 @@ You can also use labels in general without tracking specific columns:
    ]}
 
   # subscribing
+  EctoWatch.subscribe(:user_update, :updated)
+  # or...
   EctoWatch.subscribe(:user_update, :updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_update, id}, socket) do
+  def handle_info({:updated, :user_update, id, _}, socket) do
+```
+
+## Getting additional values
+
+If you would like to get more than just the `id` from the record, you can use the `extra_columns` option.
+
+> [!IMPORTANT]  
+> The `extra_columns` option should be used with care because:
+> 
+>  * The `pg_notify` function has a limit of 8000 characters and wasn't created to send full-records on updates.
+>  * If many updates are done in quick succession to the same record, subscribers will need to process all of the old results before getting to the newest one.
+> 
+> One use-case where using `extra_columns` may be particularly useful is if you want to receive updates about the deletion of a record and you need to know one of it's foreign keys.  For example in a blog if a `Comment` is deleted you might want to get it's `post_id` to refresh any caches related to comments.
+
+```elixir
+  # setup
+  {EctoWatch,
+   repo: MyApp.Repo,
+   pub_sub: MyApp.PubSub,
+   watchers: [
+     # ...
+     {MyApp.Accounts.User, :updated, extra_columns: [:roles]},
+     # ...
+   ]}
+
+  # subscribing
+  EctoWatch.subscribe(MyApp.Accounts.User, :updated)
+  # or...
+  EctoWatch.subscribe(MyApp.Accounts.User, :updated, package.id)
+
+  # handling messages
+  def handle_info({:updated, :user_update, id, %{roles: roles}}, socket) do
 ```
 
 ## Example use-cases

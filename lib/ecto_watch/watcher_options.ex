@@ -41,8 +41,14 @@ defmodule EctoWatch.WatcherOptions do
         type: :atom,
         required: false
       ],
-      columns: [
-        type: {:custom, __MODULE__, :validate_columns, [opts[:label], schema_mod, update_type]},
+      trigger_columns: [
+        type:
+          {:custom, __MODULE__, :validate_trigger_columns,
+           [opts[:label], schema_mod, update_type]},
+        required: false
+      ],
+      extra_columns: [
+        type: {:custom, __MODULE__, :validate_columns, [schema_mod]},
         required: false
       ]
     ]
@@ -67,13 +73,23 @@ defmodule EctoWatch.WatcherOptions do
 
   def validate_schema_mod(_), do: {:error, "should be an atom"}
 
-  def validate_columns([], _label, _schema_mod, _update_type),
+  def validate_trigger_columns(columns, label, schema_mod, update_type) do
+    cond do
+      update_type != :updated ->
+        {:error, "Cannot listen to trigger_columns for `#{update_type}` events."}
+
+      label == nil ->
+        {:error, "Label must be used when trigger_columns are specified."}
+
+      true ->
+        validate_columns(columns, schema_mod)
+    end
+  end
+
+  def validate_columns([], _schema_mod),
     do: {:error, "List must not be empty"}
 
-  def validate_columns(_columns, nil, _schema_mod, _update_type),
-    do: {:error, "Label must be used when columns are specified"}
-
-  def validate_columns(columns, _label, schema_mod, :updated) do
+  def validate_columns(columns, schema_mod) do
     schema_fields = schema_mod.__schema__(:fields)
 
     Enum.reject(columns, &(&1 in schema_fields))
@@ -84,10 +100,6 @@ defmodule EctoWatch.WatcherOptions do
       extra_fields ->
         {:error, "Invalid columns for #{inspect(schema_mod)}: #{inspect(extra_fields)}"}
     end
-  end
-
-  def validate_columns(_columns, _label, _schema_mod, update_type) do
-    {:error, "Cannot listen to columns for `#{update_type}` events."}
   end
 
   def new({schema_mod, update_type}) do

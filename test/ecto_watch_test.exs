@@ -2,6 +2,7 @@ defmodule EctoWatchTest do
   use ExUnit.Case, async: true
 
   # TODO: Long module names (testing for limits of postgres labels)
+  # TODO: More tests for label option
 
   defmodule Thing do
     use Ecto.Schema
@@ -233,16 +234,16 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "columns option only allowed for `updated`" do
+    test "trigger_columns option only allowed for `updated`" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :columns option: Cannot listen to columns for `inserted` events./,
+                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Cannot listen to trigger_columns for `inserted` events./,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
                          {Thing, :inserted,
-                          label: :thing_custom_event, columns: [:the_string, :the_float]}
+                          label: :thing_custom_event, trigger_columns: [:the_string, :the_float]}
                        ]
                      )
                    end
@@ -250,13 +251,25 @@ defmodule EctoWatchTest do
 
     test "columns must be non-empty" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :columns option: List must not be empty/,
+                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: List must not be empty/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
-                         {Thing, :updated, label: :thing_custom_event, columns: []}
+                         {Thing, :updated, label: :thing_custom_event, trigger_columns: []}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :extra_columns option: List must not be empty/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :updated, label: :thing_custom_event, extra_columns: []}
                        ]
                      )
                    end
@@ -264,7 +277,7 @@ defmodule EctoWatchTest do
 
     test "columns must be in schema" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
+                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -272,21 +285,45 @@ defmodule EctoWatchTest do
                        watchers: [
                          {Thing, :updated,
                           label: :thing_custom_event,
-                          columns: [:the_string, :not_a_column, :the_float, :another_bad_column]}
+                          trigger_columns: [
+                            :the_string,
+                            :not_a_column,
+                            :the_float,
+                            :another_bad_column
+                          ]}
                        ]
                      )
                    end
-    end
 
-    test "label must be specified if columns is specified" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :columns option: Label must be used when columns are specified/,
+                   ~r/invalid value for :watchers option: invalid value for :extra_columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
-                         {Thing, :updated, columns: [:the_string, :the_float]}
+                         {Thing, :updated,
+                          label: :thing_custom_event,
+                          extra_columns: [
+                            :the_string,
+                            :not_a_column,
+                            :the_float,
+                            :another_bad_column
+                          ]}
+                       ]
+                     )
+                   end
+    end
+
+    test "label must be specified if trigger_columns is specified" do
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Label must be used when trigger_columns are specified/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :updated, trigger_columns: [:the_string, :the_float]}
                        ]
                      )
                    end
@@ -360,7 +397,7 @@ defmodule EctoWatchTest do
         []
       )
 
-      assert_receive {:inserted, Thing, _}
+      assert_receive {:inserted, Thing, _, %{}}
     end
 
     test "no notification without subscribe" do
@@ -381,7 +418,7 @@ defmodule EctoWatchTest do
         []
       )
 
-      refute_receive {:inserted, %Thing{}}
+      refute_receive {:inserted, %Thing{}, %{}}
     end
   end
 
@@ -403,9 +440,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, already_existing_id1}
+      assert_receive {:updated, Thing, already_existing_id1, %{}}
 
-      assert_receive {:updated, Thing, already_existing_id2}
+      assert_receive {:updated, Thing, already_existing_id2, %{}}
     end
 
     test "updates for an id", %{
@@ -425,12 +462,12 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, already_existing_id1}
+      assert_receive {:updated, Thing, already_existing_id1, %{}}
 
-      refute_receive {:updated, Thing, already_existing_id2}
+      refute_receive {:updated, Thing, already_existing_id2, %{}}
     end
 
-    test "columns option", %{
+    test "trigger_columns option", %{
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
@@ -439,7 +476,8 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :updated, label: :thing_custom_event, columns: [:the_integer, :the_float]}
+           {Thing, :updated,
+            label: :thing_custom_event, trigger_columns: [:the_integer, :the_float]}
          ]}
       )
 
@@ -447,18 +485,63 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, _, already_existing_id1}
-      refute_receive {:updated, _, already_existing_id2}
+      refute_receive {:updated, _, already_existing_id1, %{}}
+      refute_receive {:updated, _, already_existing_id2, %{}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999", [])
 
-      assert_receive {:updated, :thing_custom_event, already_existing_id1}
-      refute_receive {:updated, _, already_existing_id2}
+      assert_receive {:updated, :thing_custom_event, already_existing_id1, %{}}
+      refute_receive {:updated, _, already_existing_id2, %{}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
 
-      assert_receive {:updated, :thing_custom_event, already_existing_id1}
-      refute_receive {:updated, _, already_existing_id2}
+      assert_receive {:updated, :thing_custom_event, already_existing_id1, %{}}
+      refute_receive {:updated, _, already_existing_id2, %{}}
+    end
+
+    test "extra_columns option", %{
+      already_existing_id1: already_existing_id1,
+      already_existing_id2: already_existing_id2
+    } do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated, extra_columns: [:the_integer, :the_float]}
+         ]}
+      )
+
+      EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "UPDATE things SET the_string = 'the new value' WHERE id = $1",
+        [already_existing_id1]
+      )
+
+      assert_receive {:updated, Thing, already_existing_id1,
+                      %{the_integer: 4455, the_float: 84.52}}
+
+      refute_receive {:updated, _, already_existing_id2, %{}}
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999 WHERE id = $1", [
+        already_existing_id1
+      ])
+
+      assert_receive {:updated, Thing, already_existing_id1,
+                      %{the_integer: 9999, the_float: 84.52}}
+
+      refute_receive {:updated, _, already_existing_id2, %{}}
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999 WHERE id = $1", [
+        already_existing_id1
+      ])
+
+      assert_receive {:updated, Thing, already_existing_id1,
+                      %{the_integer: 9999, the_float: 99.999}}
+
+      refute_receive {:updated, _, already_existing_id2, %{}}
     end
 
     test "no notifications without subscribe", %{
@@ -467,9 +550,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, already_existing_id1}
+      refute_receive {:updated, Thing, already_existing_id1, %{}}
 
-      refute_receive {:updated, Thing, already_existing_id2}
+      refute_receive {:updated, Thing, already_existing_id2, %{}}
     end
   end
 
@@ -491,9 +574,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, already_existing_id1}
+      assert_receive {:deleted, Thing, already_existing_id1, %{}}
 
-      assert_receive {:deleted, Thing, already_existing_id2}
+      assert_receive {:deleted, Thing, already_existing_id2, %{}}
     end
 
     test "deletes for an id", %{
@@ -513,9 +596,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, already_existing_id1}
+      assert_receive {:deleted, Thing, already_existing_id1, %{}}
 
-      refute_receive {:deleted, Thing, already_existing_id2}
+      refute_receive {:deleted, Thing, already_existing_id2, %{}}
     end
 
     test "no notifications without subscribe", %{
@@ -524,9 +607,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      refute_receive {:deleted, Thing, already_existing_id1}
+      refute_receive {:deleted, Thing, already_existing_id1, %{}}
 
-      refute_receive {:deleted, Thing, already_existing_id2}
+      refute_receive {:deleted, Thing, already_existing_id2, %{}}
     end
   end
 end
