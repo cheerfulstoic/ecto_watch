@@ -1,5 +1,7 @@
 # EctoWatch
 
+(Thanks to [Erlang Solutions](https://www.erlang-solutions.com) for allowing me to work on this project during downtime)
+
 EctoWatch allows you to easily get Phoenix.PubSub notifications *directly* from postgresql.
 
 Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the application code to notify other parts of the application about an inserts, updates, or deletions (e.g. `Accounts.insert_user`/`Accounts.update_user`/`Accounts.delete_user`).  This has a few potential problems:
