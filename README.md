@@ -9,7 +9,7 @@ Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the a
  * Often full records are sent which can scale poorly since messages in Elixir are copied in memory when sent.
  * Sometimes records are sent preloaded with different associations in different cases, requiring either careful coordination or a sending of all associations regardless of where they are needed.
 
-EctoWatch solves these problems by getting updates directly from postgresql.  This ensures that messages are sent for *every* update (even updates from other clients of the database).  EctoWatch also establishes a simple standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent which makes for smaller messages.
+By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* update (even updates from other clients of the database).  EctoWatch also establishes a simple standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent which makes for smaller messages.
 
 ## Usage
 
