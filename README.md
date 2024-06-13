@@ -5,11 +5,7 @@ EctoWatch allows you to easily get Phoenix.PubSub notifications *directly* from 
 Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the application code to notify other parts of the application about an inserts, updates, or deletions (e.g. `Accounts.insert_user`/`Accounts.update_user`/`Accounts.delete_user`).  This has a few potential problems:
 
  * Developers may forget to call these functions and make updates directly through `MyApp.Repo.*` functions.
- * PubSub messages can be sent in a lot of ways so having a standard which has been thought-through is useful:
-   * Having a single topic (e.g. `users`) means that all messages are sent to all subscribers, which can be inefficient.
-   * Having a topic per record (e.g. `users:1`, `users:2`, etc.) means that a subscriber needs to subscribe to every record, which can be inefficient.
-   * There may be inconsistancy in pluralization of topics (e.g. a `user` vs. `packages` topics) which can be confusing and lead to bugs.
-   * Having a message that is just `{:updated, id}` doesn't make it clear which schema was updated, using `{schema, id}` doesn't make it clear which operation happened.
+ * Often different standards of PubSub messages are used. [^1]
  * Often full records are sent which can scale poorly since messages in Elixir are copied in memory when sent.
  * Sometimes records are sent preloaded with different associations in different cases, requiring either careful coordination or a sending of all associations regardless of where they are needed.
 
@@ -228,3 +224,8 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/ecto_watch>.
 
+[^1]: more info about PubSub message standards:
+  - Having a single topic (e.g. `users`) means that all messages are sent to all subscribers, which can be inefficient.
+  - Having a topic per record (e.g. `users:1`, `users:2`, etc.) means that a subscriber needs to subscribe to every record, which can be inefficient.
+  - There may be inconsistancy in pluralization of topics (e.g. a `user` vs. `packages` topics) which can be confusing and lead to bugs.
+  - Having a message that is just `{:updated, id}` doesn't make it clear which schema was updated, using `{schema, id}` doesn't make it clear which operation happened.
