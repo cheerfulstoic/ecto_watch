@@ -1,21 +1,21 @@
 # EctoWatch
 
-(Thanks to [Erlang Solutions](https://www.erlang-solutions.com) for allowing me to work on this project during downtime)
+<sub>(Thanks to [Erlang Solutions](https://www.erlang-solutions.com) for sponsoring this project)</sub>
 
-EctoWatch allows you to easily get notifications about database changes *directly* from PostgreSQL.
+EctoWatch allows you to easily setup notifications of database changes *directly* from PostgreSQL.
 
-Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the application code to notify other parts of the application about inserts, updates, or deletions (e.g. `Accounts.insert_user`/`Accounts.update_user`/`Accounts.delete_user`).  This has a few potential problems:
+Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the application code to notify the rest of the application about inserts, updates, or deletions (e.g. `Accounts.insert_user`/`Accounts.update_user`/`Accounts.delete_user`).  This has a few potential problems:
 
  * Developers may forget to call these functions and make updates directly through `MyApp.Repo.*`.
  * Often different standards of PubSub messages are used. [^1]
  * Often full records are sent which can scale poorly since messages in Elixir are copied in memory when sent.
  * Sometimes records are sent preloaded with different associations in different cases, requiring either careful coordination or sending all associations regardless of where they are needed.
 
-By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* update (even updates from other clients of the database).  EctoWatch also establishes a simple standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent which makes for smaller messages.
+By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* change (even changes from other clients of the database).  EctoWatch also establishes a simple, standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent (makeing for smaller messages).
 
 ## Usage
 
-To use EctoWatch, you need to add it to your supervision tree and specify which ecto schemas and update types that you want to monitor.  You can do this by adding something like the following to your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
+To use EctoWatch, you need to add it to your supervision tree and specify watches for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
 
 ```elixir
   {EctoWatch,
