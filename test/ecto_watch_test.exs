@@ -31,7 +31,7 @@ defmodule EctoWatchTest do
 
     @schema_prefix "0xabcd"
 
-    schema "things" do
+    schema "pthings" do
       field(:the_string, :string)
 
       timestamps()
@@ -63,9 +63,9 @@ defmodule EctoWatchTest do
 
     start_supervised!({Phoenix.PubSub, name: TestPubSub})
 
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE SCHEMA IF NOT EXISTS \"0xabcd\"")
     Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS things", [])
-    Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS \"0xabcd\".things", [])
-    Ecto.Adapters.SQL.query!(TestRepo, "DROP SCHEMA \"0xabcd\" CASCADE")
+    Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS \"0xabcd\".pthings", [])
     Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE things (
       id SERIAL PRIMARY KEY,
       the_string TEXT,
@@ -76,8 +76,7 @@ defmodule EctoWatchTest do
       updated_at TIMESTAMP
     )", [])
 
-    Ecto.Adapters.SQL.query!(TestRepo, "CREATE SCHEMA \"0xabcd\"")
-    Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE \"0xabcd\".things (
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE \"0xabcd\".pthings (
       id SERIAL PRIMARY KEY,
       the_string TEXT,
       inserted_at TIMESTAMP,
@@ -425,7 +424,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO \"0xabcd\".things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
+        "INSERT INTO \"0xabcd\".pthings (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
         []
       )
 
@@ -452,7 +451,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO \"0xabcd\".things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
+        "INSERT INTO \"0xabcd\".pthings (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
         []
       )
 
