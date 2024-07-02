@@ -65,7 +65,7 @@ defmodule EctoWatchTest do
 
     Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS things", [])
     Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS \"0xabcd\".things", [])
-    Ecto.Adapters.SQL.query!(TestRepo, "DROP SCHEMA \"0xabcd\"")
+    Ecto.Adapters.SQL.query!(TestRepo, "DROP SCHEMA \"0xabcd\" CASCADE")
     Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE things (
       id SERIAL PRIMARY KEY,
       the_string TEXT,

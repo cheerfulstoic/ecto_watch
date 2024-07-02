@@ -73,7 +73,7 @@ defmodule EctoWatch.WatcherServer do
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      CREATE OR REPLACE FUNCTION #{unique_label}_func()
+      CREATE OR REPLACE FUNCTION \"#{schema_name}\".#{unique_label}_func()
         RETURNS trigger AS $trigger$
         DECLARE
           row record;
@@ -94,8 +94,8 @@ defmodule EctoWatch.WatcherServer do
       repo_mod,
       """
       CREATE OR REPLACE TRIGGER #{unique_label}_trigger
-        AFTER #{update_keyword} ON "#{schema_name}"."#{table_name}" FOR EACH ROW
-        EXECUTE PROCEDURE #{unique_label}_func();
+        AFTER #{update_keyword} ON \"#{schema_name}\".\"#{table_name}\" FOR EACH ROW
+        EXECUTE PROCEDURE \"#{schema_name}\".#{unique_label}_func();
       """,
       []
     )
