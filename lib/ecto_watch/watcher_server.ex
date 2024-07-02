@@ -39,8 +39,13 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def init({repo_mod, pub_sub_mod, watcher_options}) do
-    table_name = "#{watcher_options.schema_mod.__schema__(:prefix)}#{watcher_options.schema_mod.__schema__(:source)}"
-
+    table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
+    schema_name =
+      if watcher_options.schema_mod.__schema__(:prefix) do
+        watcher_options.schema_mod.__schema__(:prefix)
+      else
+        "public"
+      end
     unique_label = "#{unique_label(watcher_options)}"
 
     update_keyword =
@@ -89,7 +94,7 @@ defmodule EctoWatch.WatcherServer do
       repo_mod,
       """
       CREATE OR REPLACE TRIGGER #{unique_label}_trigger
-        AFTER #{update_keyword} ON "#{table_name}" FOR EACH ROW
+        AFTER #{update_keyword} ON "#{schema_name}"."#{table_name}" FOR EACH ROW
         EXECUTE PROCEDURE #{unique_label}_func();
       """,
       []
