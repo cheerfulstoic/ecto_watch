@@ -22,6 +22,22 @@ defmodule EctoWatchTest do
     end
   end
 
+  defmodule PrefixedThing do
+    use Ecto.Schema
+
+    @moduledoc """
+    A schema which has @schema_prefix set
+    """
+
+    @schema_prefix "abcd_"
+
+    schema "things" do
+      field(:the_string, :string)
+
+      timestamps()
+    end
+  end
+
   defmodule TestRepo do
     use Ecto.Repo,
       otp_app: :ecto_watch,
@@ -48,12 +64,20 @@ defmodule EctoWatchTest do
     start_supervised!({Phoenix.PubSub, name: TestPubSub})
 
     Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS things", [])
+    Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS abcd_things", [])
     Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE things (
       id SERIAL PRIMARY KEY,
       the_string TEXT,
       the_integer INTEGER,
       the_float FLOAT,
       extra_field TEXT,
+      inserted_at TIMESTAMP,
+      updated_at TIMESTAMP
+    )", [])
+
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE abcd_things (
+      id SERIAL PRIMARY KEY,
+      the_string TEXT,
       inserted_at TIMESTAMP,
       updated_at TIMESTAMP
     )", [])
@@ -383,21 +407,28 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :inserted}
+           {Thing, :inserted},
+           {PrefixedThing, :inserted}
          ]}
       )
 
       EctoWatch.subscribe(Thing, :inserted)
+      EctoWatch.subscribe(PrefixedThing, :inserted)
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        """
-        INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())
-        """,
+        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO abcd_things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
         []
       )
 
       assert_receive {:inserted, Thing, _, %{}}
+      assert_receive {:inserted, PrefixedThing, _, %{}}
     end
 
     test "no notification without subscribe" do
@@ -406,19 +437,25 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :inserted}
+           {Thing, :inserted},
+           {PrefixedThing, :inserted}
          ]}
       )
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        """
-        INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())
-        """,
+        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO abcd_things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
         []
       )
 
       refute_receive {:inserted, %Thing{}, %{}}
+      refute_receive {:inserted, %PrefixedThing{}, %{}}
     end
   end
 
