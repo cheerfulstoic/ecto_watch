@@ -44,6 +44,7 @@ defmodule EctoWatch.WatcherServer do
         nil -> "public"
         prefix -> prefix
       end
+
     table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
     unique_label = "#{unique_label(watcher_options)}"
 
