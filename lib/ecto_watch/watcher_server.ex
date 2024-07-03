@@ -39,13 +39,12 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def init({repo_mod, pub_sub_mod, watcher_options}) do
-    table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
     schema_name =
-      if watcher_options.schema_mod.__schema__(:prefix) do
-        watcher_options.schema_mod.__schema__(:prefix)
-      else
-        "public"
+      case watcher_options.schema_mod.__schema__(:prefix) do
+        nil -> "public"
+        prefix -> prefix
       end
+    table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
     unique_label = "#{unique_label(watcher_options)}"
 
     update_keyword =
