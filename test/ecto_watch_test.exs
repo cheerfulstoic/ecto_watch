@@ -1,5 +1,5 @@
 defmodule EctoWatchTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   # TODO: Long module names (testing for limits of postgres labels)
   # TODO: More tests for label option
@@ -22,16 +22,19 @@ defmodule EctoWatchTest do
     end
   end
 
-  defmodule PrefixedThing do
+  defmodule Other do
     use Ecto.Schema
 
     @moduledoc """
-    A schema which has @schema_prefix set
+    This table is for testing weird edge cases like:
+     * Postgres schema with characters that require quoting
+     * Primary key which isn't `id`
     """
 
     @schema_prefix "0xabcd"
 
-    schema "things" do
+    @primary_key {:weird_id, :integer, autogenerate: false}
+    schema "other" do
       field(:the_string, :string)
 
       timestamps()
@@ -63,9 +66,10 @@ defmodule EctoWatchTest do
 
     start_supervised!({Phoenix.PubSub, name: TestPubSub})
 
-    Ecto.Adapters.SQL.query!(TestRepo, "CREATE SCHEMA IF NOT EXISTS \"0xabcd\"")
-    Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS things", [])
-    Ecto.Adapters.SQL.query!(TestRepo, "DROP TABLE IF EXISTS \"0xabcd\".things", [])
+    Ecto.Adapters.SQL.query!(TestRepo, "DROP SCHEMA IF EXISTS \"public\" CASCADE")
+    Ecto.Adapters.SQL.query!(TestRepo, "DROP SCHEMA IF EXISTS \"0xabcd\" CASCADE")
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE SCHEMA \"public\"")
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE SCHEMA \"0xabcd\"")
     Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE things (
       id SERIAL PRIMARY KEY,
       the_string TEXT,
@@ -76,8 +80,8 @@ defmodule EctoWatchTest do
       updated_at TIMESTAMP
     )", [])
 
-    Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE \"0xabcd\".things (
-      id SERIAL PRIMARY KEY,
+    Ecto.Adapters.SQL.query!(TestRepo, "CREATE TABLE \"0xabcd\".other (
+      weird_id INTEGER,
       the_string TEXT,
       inserted_at TIMESTAMP,
       updated_at TIMESTAMP
@@ -409,12 +413,12 @@ defmodule EctoWatchTest do
          pub_sub: TestPubSub,
          watchers: [
            {Thing, :inserted},
-           {PrefixedThing, :inserted}
+           {Other, :inserted}
          ]}
       )
 
       EctoWatch.subscribe(Thing, :inserted)
-      EctoWatch.subscribe(PrefixedThing, :inserted)
+      EctoWatch.subscribe(Other, :inserted)
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -424,12 +428,12 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO \"0xabcd\".things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
+        "INSERT INTO \"0xabcd\".other (weird_id, the_string, inserted_at, updated_at) VALUES (1234, 'the value', NOW(), NOW())",
         []
       )
 
       assert_receive {:inserted, Thing, _, %{}}
-      assert_receive {:inserted, PrefixedThing, _, %{}}
+      assert_receive {:inserted, Other, _, %{}}
     end
 
     test "no notification without subscribe" do
@@ -439,7 +443,7 @@ defmodule EctoWatchTest do
          pub_sub: TestPubSub,
          watchers: [
            {Thing, :inserted},
-           {PrefixedThing, :inserted}
+           {Other, :inserted}
          ]}
       )
 
@@ -451,12 +455,12 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO \"0xabcd\".things (the_string, inserted_at, updated_at) VALUES ('the value', NOW(), NOW())",
+        "INSERT INTO \"0xabcd\".other (weird_id, the_string, inserted_at, updated_at) VALUES (4321, 'the value', NOW(), NOW())",
         []
       )
 
       refute_receive {:inserted, %Thing{}, %{}}
-      refute_receive {:inserted, %PrefixedThing{}, %{}}
+      refute_receive {:inserted, %Other{}, %{}}
     end
   end
 
