@@ -4,12 +4,15 @@ defmodule EctoWatch.WatcherServer do
 
   use GenServer
 
-  def pub_sub_subscription_details(schema_mod_or_label, update_type, id) do
+  def pub_sub_subscription_details(schema_mod_or_label, update_type, identifier) do
     name = unique_label(schema_mod_or_label, update_type)
 
     if Process.whereis(name) do
       {:ok,
-       GenServer.call(name, {:pub_sub_subscription_details, schema_mod_or_label, update_type, id})}
+       GenServer.call(
+         name,
+         {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier}
+       )}
     else
       {:error, "No watcher found for #{inspect(schema_mod_or_label)} / #{inspect(update_type)}"}
     end
@@ -22,15 +25,15 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def handle_call(
-        {:pub_sub_subscription_details, schema_mod_or_label, update_type, id},
+        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier},
         _from,
         state
       ) do
     unique_label = unique_label(schema_mod_or_label, update_type)
 
     channel_name =
-      if id do
-        "#{unique_label}:#{id}"
+      if identifier do
+        "#{unique_label}:#{identifier}"
       else
         "#{unique_label}"
       end
@@ -70,6 +73,10 @@ defmodule EctoWatch.WatcherServer do
       (watcher_options.opts[:extra_columns] || [])
       |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
 
+    # TODO: Raise an "unsupported" error if primary key is more than one column
+    # Or maybe multiple columns could be supported?
+    [primary_key] = watcher_options.schema_mod.__schema__(:primary_key)
+
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
@@ -80,7 +87,7 @@ defmodule EctoWatch.WatcherServer do
           payload TEXT;
         BEGIN
           row := COALESCE(NEW, OLD);
-          payload := jsonb_build_object('type','#{watcher_options.update_type}','id',row.id,'extra',json_build_object(#{extra_columns_sql}));
+          payload := jsonb_build_object('type','#{watcher_options.update_type}','identifier',row.#{primary_key},'extra',json_build_object(#{extra_columns_sql}));
           PERFORM pg_notify('#{unique_label}', payload);
 
           RETURN NEW;
@@ -117,7 +124,7 @@ defmodule EctoWatch.WatcherServer do
       raise "Expected to receive message from #{state.unique_label}, but received from #{channel_name}"
     end
 
-    %{"type" => type, "id" => id, "extra" => extra} = Jason.decode!(payload)
+    %{"type" => type, "identifier" => identifier, "extra" => extra} = Jason.decode!(payload)
 
     extra = Map.new(extra, fn {k, v} -> {String.to_existing_atom(k), v} end)
 
@@ -126,33 +133,33 @@ defmodule EctoWatch.WatcherServer do
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:inserted, state.schema_mod_or_label, id, extra}
+          {:inserted, state.schema_mod_or_label, identifier, extra}
         )
 
       "updated" ->
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
-          "#{state.unique_label}:#{id}",
-          {:updated, state.schema_mod_or_label, id, extra}
+          "#{state.unique_label}:#{identifier}",
+          {:updated, state.schema_mod_or_label, identifier, extra}
         )
 
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:updated, state.schema_mod_or_label, id, extra}
+          {:updated, state.schema_mod_or_label, identifier, extra}
         )
 
       "deleted" ->
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
-          "#{state.unique_label}:#{id}",
-          {:deleted, state.schema_mod_or_label, id, extra}
+          "#{state.unique_label}:#{identifier}",
+          {:deleted, state.schema_mod_or_label, identifier, extra}
         )
 
         Phoenix.PubSub.broadcast(
           state.pub_sub_mod,
           state.unique_label,
-          {:deleted, state.schema_mod_or_label, id, extra}
+          {:deleted, state.schema_mod_or_label, identifier, extra}
         )
     end
 
