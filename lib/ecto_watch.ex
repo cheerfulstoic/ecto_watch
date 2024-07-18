@@ -20,11 +20,8 @@ defmodule EctoWatch do
 
   def check_update_args(update_type, id) do
     case {update_type, id} do
-      {:inserted, nil} ->
-        :ok
-
       {:inserted, _} ->
-        {:error, "Cannot subscribe to id for inserted records"}
+        :ok
 
       {:updated, _} ->
         :ok
@@ -33,8 +30,8 @@ defmodule EctoWatch do
         :ok
 
       {other, _} ->
-        {:error,
-         "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"}
+        raise ArgumentError,
+              "Unexpected update_type: #{inspect(other)}.  Expected :inserted, :updated, or :deleted"
     end
   end
 
