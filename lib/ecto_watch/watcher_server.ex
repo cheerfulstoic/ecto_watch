@@ -97,10 +97,19 @@ defmodule EctoWatch.WatcherServer do
       []
     )
 
+    # Can't use the "OR REPLACE" syntax before postgres v13.3.4, so using DROP TRIGGER IF EXISTS
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      CREATE OR REPLACE TRIGGER #{unique_label}_trigger
+      DROP TRIGGER IF EXISTS #{unique_label}_trigger on \"#{schema_name}\".\"#{table_name}\";
+      """,
+      []
+    )
+
+    Ecto.Adapters.SQL.query!(
+      repo_mod,
+      """
+      CREATE TRIGGER #{unique_label}_trigger
         AFTER #{update_keyword} ON \"#{schema_name}\".\"#{table_name}\" FOR EACH ROW
         EXECUTE PROCEDURE \"#{schema_name}\".#{unique_label}_func();
       """,
