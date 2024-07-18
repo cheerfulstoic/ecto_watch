@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Backwards compatibility with older versions of postgres that don't support the `OR REPLACE` clause in `CREATE TRIGGER` (thanks @adampash / #10)
 
+## [0.5.3] - 2023-07-12
+
+### Fixed
+
+- Support primary keys other than `id` (thanks @venkatd / #3)
+
 ## [0.5.1] - 2023-07-02
 
 ### Fixed
