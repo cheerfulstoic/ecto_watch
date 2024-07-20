@@ -49,8 +49,7 @@ defmodule EctoWatch.WatcherServer do
         update_type == :inserted && column == primary_key ->
           {:error, "Cannot subscribe to primary_key for inserted records"}
 
-        column && column != primary_key &&
-            not MapSet.member?(state.association_owner_keys, column) ->
+        column && not MapSet.member?(state.identifier_keys, column) ->
           {:error, "Column #{column} is not an association column/"}
 
         column && column != primary_key && column not in state.extra_columns ->
@@ -98,13 +97,14 @@ defmodule EctoWatch.WatcherServer do
           "DELETE"
       end
 
-    extra_columns_sql =
-      (watcher_options.opts[:extra_columns] || [])
-      |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
-
     # TODO: Raise an "unsupported" error if primary key is more than one column
     # Or maybe multiple columns could be supported?
     [primary_key] = watcher_options.schema_mod.__schema__(:primary_key)
+
+    extra_columns = watcher_options.opts[:extra_columns] || []
+    all_columns = [primary_key | extra_columns]
+
+    columns_sql = Enum.map_join(all_columns, ",", &"'#{&1}',row.#{&1}")
 
     Ecto.Adapters.SQL.query!(
       repo_mod,
@@ -116,7 +116,7 @@ defmodule EctoWatch.WatcherServer do
           payload TEXT;
         BEGIN
           row := COALESCE(NEW, OLD);
-          payload := jsonb_build_object('type','#{watcher_options.update_type}','identifier',row.#{primary_key},'extra',json_build_object(#{extra_columns_sql}));
+          payload := jsonb_build_object('type','#{watcher_options.update_type}','values',json_build_object(#{columns_sql}));
           PERFORM pg_notify('#{unique_label}', payload);
 
           RETURN NEW;
@@ -153,7 +153,8 @@ defmodule EctoWatch.WatcherServer do
        pub_sub_mod: pub_sub_mod,
        unique_label: unique_label,
        schema_mod: watcher_options.schema_mod,
-       association_owner_keys: association_owner_keys(watcher_options.schema_mod),
+       identifier_keys:
+         MapSet.put(association_owner_keys(watcher_options.schema_mod), primary_key),
        extra_columns: watcher_options.opts[:extra_columns] || [],
        schema_mod_or_label: watcher_options.opts[:label] || watcher_options.schema_mod
      }}
@@ -171,24 +172,20 @@ defmodule EctoWatch.WatcherServer do
       raise "Expected to receive message from #{state.unique_label}, but received from #{channel_name}"
     end
 
-    %{"type" => type, "identifier" => identifier, "extra" => extra} = Jason.decode!(payload)
+    %{"type" => type, "values" => values} = Jason.decode!(payload)
 
-    extra = Map.new(extra, fn {k, v} -> {String.to_existing_atom(k), v} end)
+    values = Map.new(values, fn {k, v} -> {String.to_existing_atom(k), v} end)
 
     type = String.to_existing_atom(type)
 
-    message = {type, state.schema_mod_or_label, identifier, extra}
-
-    [primary_key] = state.schema_mod.__schema__(:primary_key)
+    message = {type, state.schema_mod_or_label, values}
 
     for topic <-
           topics(
             type,
             state.unique_label,
-            primary_key,
-            identifier,
-            extra,
-            state.association_owner_keys
+            values,
+            state.identifier_keys
           ) do
       Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
     end
@@ -196,32 +193,23 @@ defmodule EctoWatch.WatcherServer do
     {:noreply, state}
   end
 
-  # This code is a mess 😅
-  # will refactor when the primary key is moved into the map
-  # see: https://github.com/cheerfulstoic/ecto_watch/discussions/8
-  def topics(:inserted, unique_label, primary_key, identifier, extra, association_owner_keys) do
+  def topics(:inserted, unique_label, values, identifier_keys) do
     subscription_columns =
-      Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
+      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
 
     [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
   end
 
-  def topics(:updated, unique_label, primary_key, identifier, extra, association_owner_keys) do
+  def topics(:updated, unique_label, values, identifier_keys) do
     subscription_columns =
-      [
-        {primary_key, identifier}
-        | Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
-      ]
+      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
 
     [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
   end
 
-  def topics(:deleted, unique_label, primary_key, identifier, extra, association_owner_keys) do
+  def topics(:deleted, unique_label, values, identifier_keys) do
     subscription_columns =
-      [
-        {primary_key, identifier}
-        | Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
-      ]
+      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
 
     [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
   end
