@@ -1,10 +1,6 @@
 defmodule EctoWatch.WatcherOptions do
   defstruct [:schema_mod, :update_type, :opts]
 
-  def validate_list([]) do
-    {:error, "requires at least one watcher"}
-  end
-
   def validate_list(list) when is_list(list) do
     result =
       list
