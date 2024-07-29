@@ -45,7 +45,7 @@ defmodule EctoWatch.WatcherOptions do
         type: :atom,
         required: false
       ],
-      triggepr_columns: [
+      trigger_columns: [
         type:
           {:custom, __MODULE__, :validate_trigger_columns,
            [opts[:label], schema_mod, update_type]},
