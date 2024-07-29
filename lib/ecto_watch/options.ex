@@ -1,4 +1,8 @@
 defmodule EctoWatch.Options do
+  @moduledoc """
+  Logic for processing the `EctoWatch` options passed by the end user's config
+  """
+
   alias EctoWatch.WatcherOptions
 
   defstruct [:repo_mod, :pub_sub_mod, :watchers]

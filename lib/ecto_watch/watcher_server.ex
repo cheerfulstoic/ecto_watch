@@ -1,4 +1,8 @@
 defmodule EctoWatch.WatcherServer do
+  @moduledoc """
+  GenServer for the individiual change watchers which are configured by end users
+  """
+
   alias EctoWatch.Helpers
   alias EctoWatch.WatcherOptions
 

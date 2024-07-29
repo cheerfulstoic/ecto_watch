@@ -1,4 +1,6 @@
 defmodule EctoWatch do
+  @moduledoc false
+
   alias EctoWatch.WatcherServer
 
   use Supervisor

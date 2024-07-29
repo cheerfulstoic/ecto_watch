@@ -1,4 +1,8 @@
 defmodule EctoWatch.WatcherSupervisor do
+  @moduledoc """
+  Supervisor for postgres notification watchers (`EctoWatch.WatcherServer`)
+  """
+
   alias EctoWatch.WatcherServer
 
   use Supervisor

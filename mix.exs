@@ -39,7 +39,8 @@ defmodule EctoWatch.MixProject do
       {:jason, ">= 1.0.0"},
       {:ecto_sql, ">= 3.0.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:mix_test_watch, "~> 1.0", only: [:dev, :test]}
+      {:mix_test_watch, "~> 1.0", only: [:dev, :test]},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 end

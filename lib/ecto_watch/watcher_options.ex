@@ -1,4 +1,8 @@
 defmodule EctoWatch.WatcherOptions do
+  @moduledoc """
+  Logic for processing the `EctoWatch` postgres notification watcher options
+  which are passed in by the end user's config
+  """
   defstruct [:schema_mod, :update_type, :opts]
 
   def validate_list([]) do
@@ -41,7 +45,7 @@ defmodule EctoWatch.WatcherOptions do
         type: :atom,
         required: false
       ],
-      trigger_columns: [
+      triggepr_columns: [
         type:
           {:custom, __MODULE__, :validate_trigger_columns,
            [opts[:label], schema_mod, update_type]},
@@ -64,7 +68,7 @@ defmodule EctoWatch.WatcherOptions do
   end
 
   def validate_schema_mod(schema_mod) when is_atom(schema_mod) do
-    if EctoWatch.Helpers.is_ecto_schema_mod?(schema_mod) do
+    if EctoWatch.Helpers.ecto_schema_mod?(schema_mod) do
       {:ok, schema_mod}
     else
       {:error, "Expected schema_mod to be an Ecto schema module. Got: #{inspect(schema_mod)}"}
