@@ -4,15 +4,14 @@ defmodule EctoWatch.WatcherServer do
 
   use GenServer
 
-  def pub_sub_subscription_details(schema_mod_or_label, update_type, identifier) do
+  def pub_sub_subscription_details(schema_mod_or_label, update_type, identifier_value) do
     name = unique_label(schema_mod_or_label, update_type)
 
     if Process.whereis(name) do
-      {:ok,
-       GenServer.call(
-         name,
-         {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier}
-       )}
+      GenServer.call(
+        name,
+        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier_value}
+      )
     else
       {:error, "No watcher found for #{inspect(schema_mod_or_label)} / #{inspect(update_type)}"}
     end
@@ -25,20 +24,50 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def handle_call(
-        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier},
+        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier_value},
         _from,
         state
       ) do
     unique_label = unique_label(schema_mod_or_label, update_type)
 
-    channel_name =
-      if identifier do
-        "#{unique_label}:#{identifier}"
-      else
-        "#{unique_label}"
+    [primary_key] = state.schema_mod.__schema__(:primary_key)
+
+    {column, value} =
+      case identifier_value do
+        {key, value} ->
+          {key, value}
+
+        nil ->
+          {nil, nil}
+
+        identifier_value ->
+          {primary_key, identifier_value}
       end
 
-    {:reply, {state.pub_sub_mod, channel_name}, state}
+    result =
+      cond do
+        update_type == :inserted && column == primary_key ->
+          {:error, "Cannot subscribe to primary_key for inserted records"}
+
+        column && column != primary_key &&
+            not MapSet.member?(state.association_owner_keys, column) ->
+          {:error, "Column #{column} is not an association column/"}
+
+        column && column != primary_key && column not in state.extra_columns ->
+          {:error, "Column #{column} is not in the list of extra columns"}
+
+        true ->
+          channel_name =
+            if column && value do
+              "#{unique_label}|#{column}|#{value}"
+            else
+              "#{unique_label}"
+            end
+
+          {:ok, {state.pub_sub_mod, channel_name}}
+      end
+
+    {:reply, result, state}
   end
 
   def init({repo_mod, pub_sub_mod, watcher_options}) do
@@ -124,8 +153,17 @@ defmodule EctoWatch.WatcherServer do
        pub_sub_mod: pub_sub_mod,
        unique_label: unique_label,
        schema_mod: watcher_options.schema_mod,
+       association_owner_keys: association_owner_keys(watcher_options.schema_mod),
+       extra_columns: watcher_options.opts[:extra_columns] || [],
        schema_mod_or_label: watcher_options.opts[:label] || watcher_options.schema_mod
      }}
+  end
+
+  defp association_owner_keys(schema_mod) do
+    schema_mod.__schema__(:associations)
+    |> Enum.map(&schema_mod.__schema__(:association, &1))
+    |> Enum.map(& &1.owner_key)
+    |> MapSet.new()
   end
 
   def handle_info({:notification, _pid, _ref, channel_name, payload}, state) do
@@ -137,42 +175,55 @@ defmodule EctoWatch.WatcherServer do
 
     extra = Map.new(extra, fn {k, v} -> {String.to_existing_atom(k), v} end)
 
-    case type do
-      "inserted" ->
-        Phoenix.PubSub.broadcast(
-          state.pub_sub_mod,
-          state.unique_label,
-          {:inserted, state.schema_mod_or_label, identifier, extra}
-        )
+    type = String.to_existing_atom(type)
 
-      "updated" ->
-        Phoenix.PubSub.broadcast(
-          state.pub_sub_mod,
-          "#{state.unique_label}:#{identifier}",
-          {:updated, state.schema_mod_or_label, identifier, extra}
-        )
+    message = {type, state.schema_mod_or_label, identifier, extra}
 
-        Phoenix.PubSub.broadcast(
-          state.pub_sub_mod,
-          state.unique_label,
-          {:updated, state.schema_mod_or_label, identifier, extra}
-        )
+    [primary_key] = state.schema_mod.__schema__(:primary_key)
 
-      "deleted" ->
-        Phoenix.PubSub.broadcast(
-          state.pub_sub_mod,
-          "#{state.unique_label}:#{identifier}",
-          {:deleted, state.schema_mod_or_label, identifier, extra}
-        )
-
-        Phoenix.PubSub.broadcast(
-          state.pub_sub_mod,
-          state.unique_label,
-          {:deleted, state.schema_mod_or_label, identifier, extra}
-        )
+    for topic <-
+          topics(
+            type,
+            state.unique_label,
+            primary_key,
+            identifier,
+            extra,
+            state.association_owner_keys
+          ) do
+      Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
     end
 
     {:noreply, state}
+  end
+
+  # This code is a mess 😅
+  # will refactor when the primary key is moved into the map
+  # see: https://github.com/cheerfulstoic/ecto_watch/discussions/8
+  def topics(:inserted, unique_label, primary_key, identifier, extra, association_owner_keys) do
+    subscription_columns =
+      Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
+
+    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
+  end
+
+  def topics(:updated, unique_label, primary_key, identifier, extra, association_owner_keys) do
+    subscription_columns =
+      [
+        {primary_key, identifier}
+        | Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
+      ]
+
+    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
+  end
+
+  def topics(:deleted, unique_label, primary_key, identifier, extra, association_owner_keys) do
+    subscription_columns =
+      [
+        {primary_key, identifier}
+        | Enum.filter(extra, fn {k, v} -> MapSet.member?(association_owner_keys, k) end)
+      ]
+
+    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
   end
 
   def name(%WatcherOptions{} = watcher_options) do
