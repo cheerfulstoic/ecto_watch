@@ -58,21 +58,21 @@ You can also subscribe to individual records:
 Once subscribed, messages can be handled like so (LiveView example given here but `handle_info` callbacks can be used elsewhere as well):
 
 ```elixir
-  def handle_info({:inserted, MyApp.Accounts.User, id, _}, socket) do
+  def handle_info({:inserted, MyApp.Accounts.User, %{id: id}}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:updated, MyApp.Accounts.User, id, _}, socket) do
+  def handle_info({:updated, MyApp.Accounts.User, %{id: id}}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:deleted, MyApp.Accounts.User, id, _}, socket) do
+  def handle_info({:deleted, MyApp.Accounts.User, %{id: id}}, socket) do
     user = Accounts.get_user(id)
     socket = stream_delete(socket, :users, user)
 
@@ -101,7 +101,7 @@ You can also setup the database to trigger only on specific column changes on `:
   EctoWatch.subscribe(:user_contact_info, :updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_contact_info, id, _}, socket) do
+  def handle_info({:updated, :user_contact_info, %{id: id}}, socket) do
 ```
 
 A label is required for two reasons:
@@ -128,7 +128,7 @@ You can also use labels in general without tracking specific columns:
   EctoWatch.subscribe(:user_update, :updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_update, id, _}, socket) do
+  def handle_info({:updated, :user_update, %{id: id}}, socket) do
 ```
 
 ## Getting additional values
@@ -160,7 +160,7 @@ If you would like to get more than just the `id` from the record, you can use th
   EctoWatch.subscribe(MyApp.Posts.Comment, :deleted)
 
   # handling messages
-  def handle_info({:updated, MyApp.Posts.Comment, id, %{post_id: post_id}}, socket) do
+  def handle_info({:updated, MyApp.Posts.Comment, %{id: id, post_id: post_id}}, socket) do
 ```
 
 ## Example use-cases
@@ -208,6 +208,7 @@ Disabling the triggers can lock the table in a transaction and so should be used
    * allow specifying a condition for when the trigger should fire
  * Creating a batch-processing GenServer to reduce queries to the database.
  * Make watchers more generic (?).  Don't need dependency on PubSub, but could make it an adapter or something
+ * Allow for local broadcasting of Phoenix.PubSub messages
 
 ## Installation
 

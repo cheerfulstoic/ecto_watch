@@ -510,8 +510,8 @@ defmodule EctoWatchTest do
         []
       )
 
-      assert_receive {:inserted, Thing, _, %{}}
-      assert_receive {:inserted, Other, _, %{}}
+      assert_receive {:inserted, Thing, %{id: 3}}
+      assert_receive {:inserted, Other, %{weird_id: 1234}}
     end
 
     test "inserts for an association column", %{already_existing_id2: already_existing_id2} do
@@ -532,7 +532,7 @@ defmodule EctoWatchTest do
         []
       )
 
-      assert_receive {:inserted, Thing, _, %{parent_thing_id: ^already_existing_id2}}
+      assert_receive {:inserted, Thing, %{id: 3, parent_thing_id: ^already_existing_id2}}
     end
 
     test "column is not in list of extra_columns", %{already_existing_id2: already_existing_id2} do
@@ -556,7 +556,7 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "column is not association column", %{already_existing_id2: already_existing_id2} do
+    test "column is not association column" do
       start_supervised!(
         {EctoWatch,
          repo: TestRepo,
@@ -596,8 +596,8 @@ defmodule EctoWatchTest do
         []
       )
 
-      refute_receive {:inserted, %Thing{}, %{}}
-      refute_receive {:inserted, %Other{}, %{}}
+      refute_receive {:inserted, Thing, %{}}
+      refute_receive {:inserted, Other, %{}}
     end
   end
 
@@ -619,9 +619,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, already_existing_id1, %{}}
+      assert_receive {:updated, Thing, %{id: ^already_existing_id1}}
 
-      assert_receive {:updated, Thing, already_existing_id2, %{}}
+      assert_receive {:updated, Thing, %{id: ^already_existing_id2}}
     end
 
     test "updates for the primary key", %{
@@ -641,9 +641,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, already_existing_id1, %{}}
+      assert_receive {:updated, Thing, %{id: ^already_existing_id1}}
 
-      refute_receive {:updated, Thing, already_existing_id2, %{}}
+      refute_receive {:updated, Thing, %{id: ^already_existing_id2}}
     end
 
     test "updates for an association column", %{
@@ -663,16 +663,13 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, ^already_existing_id1, %{}}
+      refute_receive {:updated, Thing, %{id: ^already_existing_id1}}
 
-      assert_receive {:updated, Thing, ^already_existing_id2,
-                      %{parent_thing_id: ^already_existing_id1}}
+      assert_receive {:updated, Thing,
+                      %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
-    test "column is not in list of extra_columns", %{
-      already_existing_id1: already_existing_id1,
-      already_existing_id2: already_existing_id2
-    } do
+    test "column is not in list of extra_columns", %{already_existing_id2: already_existing_id2} do
       start_supervised!(
         {EctoWatch,
          repo: TestRepo,
@@ -693,10 +690,7 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "column is not association column", %{
-      already_existing_id1: already_existing_id1,
-      already_existing_id2: already_existing_id2
-    } do
+    test "column is not association column" do
       start_supervised!(
         {EctoWatch,
          repo: TestRepo,
@@ -731,18 +725,18 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, _, already_existing_id1, %{}}
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      refute_receive {:updated, _, %{id: ^already_existing_id1}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999", [])
 
-      assert_receive {:updated, :thing_custom_event, already_existing_id1, %{}}
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      assert_receive {:updated, :thing_custom_event, %{id: ^already_existing_id1}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
 
-      assert_receive {:updated, :thing_custom_event, already_existing_id1, %{}}
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      assert_receive {:updated, :thing_custom_event, %{id: ^already_existing_id1}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
     end
 
     test "extra_columns option", %{
@@ -766,28 +760,28 @@ defmodule EctoWatchTest do
         [already_existing_id1]
       )
 
-      assert_receive {:updated, Thing, already_existing_id1,
-                      %{the_integer: 4455, the_float: 84.52}}
+      assert_receive {:updated, Thing,
+                      %{id: ^already_existing_id1, the_integer: 4455, the_float: 84.52}}
 
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999 WHERE id = $1", [
         already_existing_id1
       ])
 
-      assert_receive {:updated, Thing, already_existing_id1,
-                      %{the_integer: 9999, the_float: 84.52}}
+      assert_receive {:updated, Thing,
+                      %{id: ^already_existing_id1, the_integer: 9999, the_float: 84.52}}
 
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999 WHERE id = $1", [
         already_existing_id1
       ])
 
-      assert_receive {:updated, Thing, already_existing_id1,
-                      %{the_integer: 9999, the_float: 99.999}}
+      assert_receive {:updated, Thing,
+                      %{id: ^already_existing_id1, the_integer: 9999, the_float: 99.999}}
 
-      refute_receive {:updated, _, already_existing_id2, %{}}
+      refute_receive {:updated, _, %{id: ^already_existing_id2}}
     end
 
     test "no notifications without subscribe", %{
@@ -796,9 +790,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, already_existing_id1, %{}}
+      refute_receive {:updated, Thing, %{id: ^already_existing_id1}}
 
-      refute_receive {:updated, Thing, already_existing_id2, %{}}
+      refute_receive {:updated, Thing, %{id: ^already_existing_id2}}
     end
   end
 
@@ -820,9 +814,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, already_existing_id1, %{}}
+      assert_receive {:deleted, Thing, %{id: ^already_existing_id1}}
 
-      assert_receive {:deleted, Thing, already_existing_id2, %{}}
+      assert_receive {:deleted, Thing, %{id: ^already_existing_id2}}
     end
 
     test "deletes for the primary key", %{
@@ -842,9 +836,9 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, already_existing_id1, %{}}
+      assert_receive {:deleted, Thing, %{id: ^already_existing_id1}}
 
-      refute_receive {:deleted, Thing, already_existing_id2, %{}}
+      refute_receive {:deleted, Thing, %{id: ^already_existing_id2}}
     end
 
     test "deletes for an association column", %{
@@ -864,14 +858,13 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      refute_receive {:deleted, Thing, ^already_existing_id1, %{}}
+      refute_receive {:deleted, Thing, %{id: ^already_existing_id1}}
 
-      assert_receive {:deleted, Thing, ^already_existing_id2,
-                      %{parent_thing_id: ^already_existing_id1}}
+      assert_receive {:deleted, Thing,
+                      %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
     test "column is not in list of extra_columns", %{
-      already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
       start_supervised!(
@@ -894,10 +887,7 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "column is not association column", %{
-      already_existing_id1: already_existing_id1,
-      already_existing_id2: already_existing_id2
-    } do
+    test "column is not association column" do
       start_supervised!(
         {EctoWatch,
          repo: TestRepo,
@@ -920,9 +910,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      refute_receive {:deleted, Thing, already_existing_id1, %{}}
+      refute_receive {:deleted, Thing, %{id: ^already_existing_id1}}
 
-      refute_receive {:deleted, Thing, already_existing_id2, %{}}
+      refute_receive {:deleted, Thing, %{id: ^already_existing_id2}}
     end
   end
 end
