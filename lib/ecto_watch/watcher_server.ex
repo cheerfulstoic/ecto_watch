@@ -21,8 +21,44 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
+  defmodule EctoSchemaDetails do
+    @moduledoc """
+    Struct holding pre-processed details about Ecto schemas for use in the watcher server
+    """
+
+    defstruct ~w[schema_mod pg_schema_name table_name primary_key]a
+
+    def from_watcher_options(watcher_options) do
+      pg_schema_name =
+        case watcher_options.schema_mod.__schema__(:prefix) do
+          nil -> "public"
+          prefix -> prefix
+        end
+
+      table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
+
+      # TODO: Raise an "unsupported" error if primary key is more than one column
+      # Or maybe multiple columns could be supported?
+      [primary_key] = watcher_options.schema_mod.__schema__(:primary_key)
+
+      %__MODULE__{
+        schema_mod: watcher_options.schema_mod,
+        pg_schema_name: pg_schema_name,
+        table_name: table_name,
+        primary_key: primary_key
+      }
+    end
+  end
+
   def start_link({repo_mod, pub_sub_mod, watcher_options}) do
-    GenServer.start_link(__MODULE__, {repo_mod, pub_sub_mod, watcher_options},
+    unique_label = "#{unique_label(watcher_options)}"
+
+    ecto_schema_details = EctoSchemaDetails.from_watcher_options(watcher_options)
+
+    GenServer.start_link(
+      __MODULE__,
+      {repo_mod, pub_sub_mod, ecto_schema_details, watcher_options, unique_label,
+       watcher_options.label},
       name: unique_label(watcher_options)
     )
   end
@@ -32,10 +68,6 @@ defmodule EctoWatch.WatcherServer do
         _from,
         state
       ) do
-    unique_label = unique_label(schema_mod_or_label, update_type)
-
-    [primary_key] = state.schema_mod.__schema__(:primary_key)
-
     {column, value} =
       case identifier_value do
         {key, value} ->
@@ -45,54 +77,52 @@ defmodule EctoWatch.WatcherServer do
           {nil, nil}
 
         identifier_value ->
-          {primary_key, identifier_value}
+          {state.ecto_schema_details.primary_key, identifier_value}
       end
 
     result =
-      cond do
-        update_type == :inserted && column == primary_key ->
-          {:error, "Cannot subscribe to primary_key for inserted records"}
+      with :ok <- validate_subscription(state, update_type, column) do
+        unique_label = unique_label(schema_mod_or_label, update_type)
 
-        column && not MapSet.member?(state.identifier_keys, column) ->
-          {:error, "Column #{column} is not an association column/"}
+        channel_name =
+          if column && value do
+            "#{unique_label}|#{column}|#{value}"
+          else
+            "#{unique_label}"
+          end
 
-        column && column != primary_key && column not in state.extra_columns ->
-          {:error, "Column #{column} is not in the list of extra columns"}
-
-        true ->
-          channel_name =
-            if column && value do
-              "#{unique_label}|#{column}|#{value}"
-            else
-              "#{unique_label}"
-            end
-
-          {:ok, {state.pub_sub_mod, channel_name}}
+        {:ok, {state.pub_sub_mod, channel_name}}
       end
 
     {:reply, result, state}
   end
 
-  def init({repo_mod, pub_sub_mod, watcher_options}) do
-    schema_name =
-      case watcher_options.schema_mod.__schema__(:prefix) do
-        nil -> "public"
-        prefix -> prefix
-      end
+  defp validate_subscription(state, update_type, column) do
+    cond do
+      update_type == :inserted && column == state.ecto_schema_details.primary_key ->
+        {:error, "Cannot subscribe to primary_key for inserted records"}
 
-    table_name = "#{watcher_options.schema_mod.__schema__(:source)}"
-    unique_label = "#{unique_label(watcher_options)}"
+      column && not MapSet.member?(state.identifier_columns, column) ->
+        {:error, "Column #{column} is not an association column"}
 
+      column && column != state.ecto_schema_details.primary_key &&
+          column not in state.options.extra_columns ->
+        {:error, "Column #{column} is not in the list of extra columns"}
+
+      true ->
+        :ok
+    end
+  end
+
+  def init({repo_mod, pub_sub_mod, ecto_schema_details, options, unique_label, label}) do
     update_keyword =
-      case watcher_options.update_type do
+      case options.update_type do
         :inserted ->
           "INSERT"
 
         :updated ->
-          trigger_columns = watcher_options.opts[:trigger_columns]
-
-          if trigger_columns do
-            "UPDATE OF #{Enum.join(trigger_columns, ", ")}"
+          if options.trigger_columns do
+            "UPDATE OF #{Enum.join(options.trigger_columns, ", ")}"
           else
             "UPDATE"
           end
@@ -101,26 +131,21 @@ defmodule EctoWatch.WatcherServer do
           "DELETE"
       end
 
-    # TODO: Raise an "unsupported" error if primary key is more than one column
-    # Or maybe multiple columns could be supported?
-    [primary_key] = watcher_options.schema_mod.__schema__(:primary_key)
-
-    extra_columns = watcher_options.opts[:extra_columns] || []
-    all_columns = [primary_key | extra_columns]
-
-    columns_sql = Enum.map_join(all_columns, ",", &"'#{&1}',row.#{&1}")
+    columns_sql =
+      [ecto_schema_details.primary_key | options.extra_columns]
+      |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
 
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      CREATE OR REPLACE FUNCTION \"#{schema_name}\".#{unique_label}_func()
+      CREATE OR REPLACE FUNCTION \"#{ecto_schema_details.pg_schema_name}\".#{unique_label}_func()
         RETURNS trigger AS $trigger$
         DECLARE
           row record;
           payload TEXT;
         BEGIN
           row := COALESCE(NEW, OLD);
-          payload := jsonb_build_object('type','#{watcher_options.update_type}','values',json_build_object(#{columns_sql}));
+          payload := jsonb_build_object('type','#{options.update_type}','values',json_build_object(#{columns_sql}));
           PERFORM pg_notify('#{unique_label}', payload);
 
           RETURN NEW;
@@ -134,7 +159,7 @@ defmodule EctoWatch.WatcherServer do
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      DROP TRIGGER IF EXISTS #{unique_label}_trigger on \"#{schema_name}\".\"#{table_name}\";
+      DROP TRIGGER IF EXISTS #{unique_label}_trigger on \"#{ecto_schema_details.pg_schema_name}\".\"#{ecto_schema_details.table_name}\";
       """,
       []
     )
@@ -143,8 +168,8 @@ defmodule EctoWatch.WatcherServer do
       repo_mod,
       """
       CREATE TRIGGER #{unique_label}_trigger
-        AFTER #{update_keyword} ON \"#{schema_name}\".\"#{table_name}\" FOR EACH ROW
-        EXECUTE PROCEDURE \"#{schema_name}\".#{unique_label}_func();
+        AFTER #{update_keyword} ON \"#{ecto_schema_details.pg_schema_name}\".\"#{ecto_schema_details.table_name}\" FOR EACH ROW
+        EXECUTE PROCEDURE \"#{ecto_schema_details.pg_schema_name}\".#{unique_label}_func();
       """,
       []
     )
@@ -156,15 +181,18 @@ defmodule EctoWatch.WatcherServer do
      %{
        pub_sub_mod: pub_sub_mod,
        unique_label: unique_label,
-       schema_mod: watcher_options.schema_mod,
-       identifier_keys:
-         MapSet.put(association_owner_keys(watcher_options.schema_mod), primary_key),
-       extra_columns: watcher_options.opts[:extra_columns] || [],
-       schema_mod_or_label: watcher_options.opts[:label] || watcher_options.schema_mod
+       ecto_schema_details: ecto_schema_details,
+       identifier_columns:
+         MapSet.put(
+           association_columns(ecto_schema_details.schema_mod),
+           ecto_schema_details.primary_key
+         ),
+       options: options,
+       schema_mod_or_label: label || ecto_schema_details.schema_mod
      }}
   end
 
-  defp association_owner_keys(schema_mod) do
+  defp association_columns(schema_mod) do
     schema_mod.__schema__(:associations)
     |> Enum.map(&schema_mod.__schema__(:association, &1))
     |> Enum.map(& &1.owner_key)
@@ -176,20 +204,20 @@ defmodule EctoWatch.WatcherServer do
       raise "Expected to receive message from #{state.unique_label}, but received from #{channel_name}"
     end
 
-    %{"type" => type, "values" => values} = Jason.decode!(payload)
+    %{"type" => type, "values" => returned_values} = Jason.decode!(payload)
 
-    values = Map.new(values, fn {k, v} -> {String.to_existing_atom(k), v} end)
+    returned_values = Map.new(returned_values, fn {k, v} -> {String.to_existing_atom(k), v} end)
 
     type = String.to_existing_atom(type)
 
-    message = {type, state.schema_mod_or_label, values}
+    message = {type, state.schema_mod_or_label, returned_values}
 
     for topic <-
           topics(
             type,
             state.unique_label,
-            values,
-            state.identifier_keys
+            returned_values,
+            state.identifier_columns
           ) do
       Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
     end
@@ -197,25 +225,14 @@ defmodule EctoWatch.WatcherServer do
     {:noreply, state}
   end
 
-  def topics(:inserted, unique_label, values, identifier_keys) do
-    subscription_columns =
-      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
-
-    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
-  end
-
-  def topics(:updated, unique_label, values, identifier_keys) do
-    subscription_columns =
-      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
-
-    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
-  end
-
-  def topics(:deleted, unique_label, values, identifier_keys) do
-    subscription_columns =
-      Enum.filter(values, fn {k, _} -> MapSet.member?(identifier_keys, k) end)
-
-    [unique_label | Enum.map(subscription_columns, fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)]
+  def topics(update_type, unique_label, returned_values, identifier_columns)
+      when update_type in ~w[inserted updated deleted]a do
+    [
+      unique_label
+      | returned_values
+        |> Enum.filter(fn {k, _} -> MapSet.member?(identifier_columns, k) end)
+        |> Enum.map(fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)
+    ]
   end
 
   def name(%WatcherOptions{} = watcher_options) do
@@ -225,10 +242,10 @@ defmodule EctoWatch.WatcherServer do
   # To make things simple: generate a single string which is unique for each watcher
   # that can be used as the watcher process name, trigger name, trigger function name,
   # and Phoenix.PubSub channel name.
-  def unique_label(%WatcherOptions{} = watcher_options) do
+  def unique_label(%WatcherOptions{} = options) do
     unique_label(
-      watcher_options.opts[:label] || watcher_options.schema_mod,
-      watcher_options.update_type
+      options.label || options.schema_mod,
+      options.update_type
     )
   end
 

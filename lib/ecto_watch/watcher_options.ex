@@ -3,7 +3,7 @@ defmodule EctoWatch.WatcherOptions do
   Logic for processing the `EctoWatch` postgres notification watcher options
   which are passed in by the end user's config
   """
-  defstruct [:schema_mod, :update_type, :opts]
+  defstruct [:schema_mod, :update_type, :label, :trigger_columns, :extra_columns]
 
   def validate_list([]) do
     {:error, "requires at least one watcher"}
@@ -111,6 +111,12 @@ defmodule EctoWatch.WatcherOptions do
   end
 
   def new({schema_mod, update_type, opts}) do
-    %__MODULE__{schema_mod: schema_mod, update_type: update_type, opts: opts}
+    %__MODULE__{
+      schema_mod: schema_mod,
+      update_type: update_type,
+      label: opts[:label],
+      trigger_columns: opts[:trigger_columns],
+      extra_columns: opts[:extra_columns] || []
+    }
   end
 end
