@@ -46,7 +46,7 @@ jobs:
       - name: Run credo
         run: mix credo
       - name: Run tests
-        run:
+        run: |
           mix ecto.create -r EctoWatch.TestRepo
           mix test
         env:
