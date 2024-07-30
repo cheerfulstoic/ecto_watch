@@ -46,7 +46,9 @@ jobs:
       - name: Run credo
         run: mix credo
       - name: Run tests
-        run: mix test
+        run:
+          mix db.setup
+          mix test
         env:
           DB_PASSWORD: postgres
           DB_HOST: db
