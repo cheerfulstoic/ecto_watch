@@ -55,6 +55,13 @@ You can also subscribe to individual records:
   EctoWatch.subscribe(MyApp.Accounts.Package, :deleted, package.id)
 ```
 
+... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list! See below for more info on the `extra_columns` option):
+
+```elixir
+  EctoWatch.subscribe(MyApp.Accounts.Package, :updated, {:post_id, post.id})
+  EctoWatch.subscribe(MyApp.Accounts.Package, :deleted, {:post_id, post.id})
+```
+
 Once subscribed, messages can be handled like so (LiveView example given here but `handle_info` callbacks can be used elsewhere as well):
 
 ```elixir
