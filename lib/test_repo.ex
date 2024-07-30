@@ -1,4 +1,6 @@
 defmodule EctoWatch.TestRepo do
+  @moduledoc "Repo for tests"
+
   use Ecto.Repo,
     otp_app: :ecto_watch,
     adapter: Ecto.Adapters.Postgres
