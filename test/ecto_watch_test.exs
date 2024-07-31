@@ -188,7 +188,7 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "require at least one watcher" do
+    test "watcher option validations" do
       assert_raise ArgumentError, ~r/required :watchers option not found/, fn ->
         EctoWatch.start_link(
           repo: TestRepo,
@@ -203,16 +203,6 @@ defmodule EctoWatchTest do
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: :not_a_list
-                     )
-                   end
-
-      assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: requires at least one watcher/,
-                   fn ->
-                     EctoWatch.start_link(
-                       repo: TestRepo,
-                       pub_sub: TestPubSub,
-                       watchers: []
                      )
                    end
 
@@ -374,6 +364,15 @@ defmodule EctoWatchTest do
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
         EctoWatch.subscribe(Thing, :updated, {:parent_thing_id, already_existing_id1})
       end
+    end
+
+    test "Empty list of watcher is allowed" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: []}
+      )
     end
 
     test "subscribe requires proper Ecto schema", %{
