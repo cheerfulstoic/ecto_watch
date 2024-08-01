@@ -19,4 +19,3 @@ defmodule EctoWatch.TestRepo do
      )}
   end
 end
-
