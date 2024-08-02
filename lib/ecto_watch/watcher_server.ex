@@ -8,16 +8,18 @@ defmodule EctoWatch.WatcherServer do
 
   use GenServer
 
-  def pub_sub_subscription_details(schema_mod_or_label, update_type, identifier_value) do
-    name = unique_label(schema_mod_or_label, update_type)
+  def pub_sub_subscription_details(identifier, identifier_value) do
+    with {:ok, pid} <- find(identifier) do
+      GenServer.call(pid, {:pub_sub_subscription_details, identifier, identifier_value})
+    end
+  end
 
-    if Process.whereis(name) do
-      GenServer.call(
-        name,
-        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier_value}
-      )
-    else
-      {:error, "No watcher found for #{inspect(schema_mod_or_label)} / #{inspect(update_type)}"}
+  defp find(identifier) do
+    name = unique_label(identifier)
+
+    case Process.whereis(name) do
+      nil -> {:error, "No watcher found for #{inspect(identifier)}"}
+      pid -> {:ok, pid}
     end
   end
 
@@ -108,7 +110,7 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def handle_call(
-        {:pub_sub_subscription_details, schema_mod_or_label, update_type, identifier_value},
+        {:pub_sub_subscription_details, identifier, identifier_value},
         _from,
         state
       ) do
@@ -125,14 +127,12 @@ defmodule EctoWatch.WatcherServer do
       end
 
     result =
-      with :ok <- validate_subscription(state, update_type, column) do
-        unique_label = unique_label(schema_mod_or_label, update_type)
-
+      with :ok <- validate_subscription(state, identifier, column) do
         channel_name =
           if column && value do
-            "#{unique_label}|#{column}|#{value}"
+            "#{state.unique_label}|#{column}|#{value}"
           else
-            "#{unique_label}"
+            "#{state.unique_label}"
           end
 
         {:ok, {state.pub_sub_mod, channel_name}}
@@ -141,9 +141,9 @@ defmodule EctoWatch.WatcherServer do
     {:reply, result, state}
   end
 
-  defp validate_subscription(state, update_type, column) do
+  defp validate_subscription(state, identifier, column) do
     cond do
-      update_type == :inserted && column == state.options.schema_definition.primary_key ->
+      match?({_, :inserted}, identifier) && column == state.options.schema_definition.primary_key ->
         {:error, "Cannot subscribe to primary_key for inserted records"}
 
       column && not MapSet.member?(state.identifier_columns, column) ->
@@ -170,7 +170,13 @@ defmodule EctoWatch.WatcherServer do
     type = String.to_existing_atom(type)
 
     message =
-      {type, state.options.label || state.options.schema_definition.label, returned_values}
+      case state.options.label do
+        nil ->
+          {{state.options.label || state.options.schema_definition.label, type}, returned_values}
+
+        label ->
+          {label, returned_values}
+      end
 
     for topic <-
           topics(
@@ -202,11 +208,19 @@ defmodule EctoWatch.WatcherServer do
   # To make things simple: generate a single string which is unique for each watcher
   # that can be used as the watcher process name, trigger name, trigger function name,
   # and Phoenix.PubSub channel name.
-  def unique_label(%WatcherOptions{} = options) do
-    :"ew_#{options.update_type}_for_#{Helpers.label(options.label || options.schema_definition.label)}"
+  defp unique_label(%WatcherOptions{} = options) do
+    if options.label do
+      unique_label(options.label)
+    else
+      unique_label({options.schema_definition.label, options.update_type})
+    end
   end
 
-  defp unique_label(schema_mod_or_label, update_type) do
-    :"ew_#{update_type}_for_#{Helpers.label(schema_mod_or_label)}"
+  defp unique_label({schema_mod, update_type}) do
+    :"ew_#{update_type}_for_#{Helpers.label(schema_mod)}"
+  end
+
+  defp unique_label(label) do
+    :"ew_for_#{Helpers.label(label)}"
   end
 end

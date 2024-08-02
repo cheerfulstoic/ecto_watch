@@ -436,19 +436,45 @@ defmodule EctoWatchTest do
                    end
     end
 
+    test "warnings about old behavior for subscribing" do
+      assert_raise ArgumentError,
+                   ~r/This way of subscribing was removed in version 0.8.0. Instead call:\n+subscribe\(\{EctoWatchTest.Thing, :updated\}\)/,
+                   fn ->
+                     EctoWatch.subscribe(Thing, :updated)
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/This way of subscribing was removed in version 0.8.0. Instead call:\n+subscribe\(\{EctoWatchTest.Thing, :updated\}, 123\)/,
+                   fn ->
+                     EctoWatch.subscribe(Thing, :updated, 123)
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/This way of subscribing was removed in version 0.8.0. Instead call:\n+subscribe\(:a_label\)/,
+                   fn ->
+                     EctoWatch.subscribe(:a_label, :updated)
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/This way of subscribing was removed in version 0.8.0. Instead call:\n+subscribe\(:a_label, 123\)/,
+                   fn ->
+                     EctoWatch.subscribe(:a_label, :updated, 123)
+                   end
+    end
+
     test "subscribe returns error if EctoWatch hasn't been started", %{
       already_existing_id1: already_existing_id1
     } do
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
-        EctoWatch.subscribe(Thing, :updated)
+        EctoWatch.subscribe({Thing, :updated})
       end
 
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
-        EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+        EctoWatch.subscribe({Thing, :updated}, already_existing_id1)
       end
 
       assert_raise RuntimeError, ~r/EctoWatch is not running/, fn ->
-        EctoWatch.subscribe(Thing, :updated, {:parent_thing_id, already_existing_id1})
+        EctoWatch.subscribe({Thing, :updated}, {:parent_thing_id, already_existing_id1})
       end
     end
 
@@ -469,23 +495,22 @@ defmodule EctoWatchTest do
       )
 
       assert_raise ArgumentError,
-                   ~r/No watcher found for NotASchema \/ :updated/,
+                   ~r/Expected atom to be an Ecto schema module. Got: NotASchema/,
                    fn ->
-                     EctoWatch.subscribe(NotASchema, :updated)
+                     EctoWatch.subscribe({NotASchema, :updated})
                    end
 
       assert_raise ArgumentError,
-                   ~r/No watcher found for NotASchema \/ :updated/,
+                   ~r/Expected atom to be an Ecto schema module. Got: NotASchema/,
                    fn ->
-                     EctoWatch.subscribe(NotASchema, :updated, already_existing_id1)
+                     EctoWatch.subscribe({NotASchema, :updated}, already_existing_id1)
                    end
 
       assert_raise ArgumentError,
-                   ~r/No watcher found for NotASchema \/ :updated/,
+                   ~r/Expected atom to be an Ecto schema module. Got: NotASchema/,
                    fn ->
                      EctoWatch.subscribe(
-                       NotASchema,
-                       :updated,
+                       {NotASchema, :updated},
                        {:parent_thing_id, already_existing_id1}
                      )
                    end
@@ -506,41 +531,40 @@ defmodule EctoWatchTest do
       assert_raise ArgumentError,
                    "Unexpected update_type: :something_else.  Expected :inserted, :updated, or :deleted",
                    fn ->
-                     EctoWatch.subscribe(Thing, :something_else)
+                     EctoWatch.subscribe({Thing, :something_else})
                    end
 
       assert_raise ArgumentError,
-                   "Unexpected update_type: 1234.  Expected :inserted, :updated, or :deleted",
+                   "Invalid subscription (expected either `{schema_module, :inserted | :updated | :deleted}` or a label): {EctoWatchTest.Thing, 1234}",
                    fn ->
-                     EctoWatch.subscribe(Thing, 1234)
+                     EctoWatch.subscribe({Thing, 1234})
                    end
 
       assert_raise ArgumentError,
                    "Unexpected update_type: :something_else.  Expected :inserted, :updated, or :deleted",
                    fn ->
-                     EctoWatch.subscribe(Thing, :something_else, already_existing_id1)
+                     EctoWatch.subscribe({Thing, :something_else}, already_existing_id1)
                    end
 
       assert_raise ArgumentError,
-                   "Unexpected update_type: 1234.  Expected :inserted, :updated, or :deleted",
+                   "Invalid subscription (expected either `{schema_module, :inserted | :updated | :deleted}` or a label): {EctoWatchTest.Thing, 1234}",
                    fn ->
-                     EctoWatch.subscribe(Thing, 1234, already_existing_id1)
+                     EctoWatch.subscribe({Thing, 1234}, already_existing_id1)
                    end
 
       assert_raise ArgumentError,
                    "Unexpected update_type: :something_else.  Expected :inserted, :updated, or :deleted",
                    fn ->
                      EctoWatch.subscribe(
-                       Thing,
-                       :something_else,
+                       {Thing, :something_else},
                        {:parent_thing_id, already_existing_id1}
                      )
                    end
 
       assert_raise ArgumentError,
-                   "Unexpected update_type: 1234.  Expected :inserted, :updated, or :deleted",
+                   "Invalid subscription (expected either `{schema_module, :inserted | :updated | :deleted}` or a label): {EctoWatchTest.Thing, 1234}",
                    fn ->
-                     EctoWatch.subscribe(Thing, 1234, {:parent_thing_id, already_existing_id1})
+                     EctoWatch.subscribe({Thing, 1234}, {:parent_thing_id, already_existing_id1})
                    end
     end
   end
@@ -559,10 +583,10 @@ defmodule EctoWatchTest do
           label: :other_inserted}
        ]})
 
-      EctoWatch.subscribe(Thing, :inserted)
-      EctoWatch.subscribe(Other, :inserted)
-      EctoWatch.subscribe(:things_inserted, :inserted)
-      EctoWatch.subscribe(:other_inserted, :inserted)
+      EctoWatch.subscribe({Thing, :inserted})
+      EctoWatch.subscribe({Other, :inserted})
+      EctoWatch.subscribe(:things_inserted)
+      EctoWatch.subscribe(:other_inserted)
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -576,10 +600,10 @@ defmodule EctoWatchTest do
         []
       )
 
-      assert_receive {:inserted, Thing, %{id: 3}}
-      assert_receive {:inserted, :things_inserted, %{id: 3}}
-      assert_receive {:inserted, Other, %{weird_id: 1234}}
-      assert_receive {:inserted, :other_inserted, %{weird_id: 1234}}
+      assert_receive {{Thing, :inserted}, %{id: 3}}
+      assert_receive {:things_inserted, %{id: 3}}
+      assert_receive {{Other, :inserted}, %{weird_id: 1234}}
+      assert_receive {:other_inserted, %{weird_id: 1234}}
     end
 
     test "inserts for an association column", %{already_existing_id2: already_existing_id2} do
@@ -597,11 +621,10 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :inserted, {:parent_thing_id, already_existing_id2})
+      EctoWatch.subscribe({Thing, :inserted}, {:parent_thing_id, already_existing_id2})
 
       EctoWatch.subscribe(
         :things_parent_id_inserted,
-        :inserted,
         {:parent_thing_id, already_existing_id2}
       )
 
@@ -611,9 +634,9 @@ defmodule EctoWatchTest do
         []
       )
 
-      assert_receive {:inserted, Thing, %{id: 3, parent_thing_id: ^already_existing_id2}}
+      assert_receive {{Thing, :inserted}, %{id: 3, parent_thing_id: ^already_existing_id2}}
 
-      assert_receive {:inserted, :things_parent_id_inserted,
+      assert_receive {:things_parent_id_inserted,
                       %{id: 3, parent_thing_id: ^already_existing_id2}}
     end
 
@@ -631,8 +654,7 @@ defmodule EctoWatchTest do
                    ~r/Column other_parent_thing_id is not in the list of extra columns/,
                    fn ->
                      EctoWatch.subscribe(
-                       Thing,
-                       :inserted,
+                       {Thing, :inserted},
                        {:other_parent_thing_id, already_existing_id2}
                      )
                    end
@@ -651,7 +673,7 @@ defmodule EctoWatchTest do
       assert_raise ArgumentError,
                    ~r/Column the_string is not an association column/,
                    fn ->
-                     EctoWatch.subscribe(Thing, :inserted, {:the_string, "test"})
+                     EctoWatch.subscribe({Thing, :inserted}, {:the_string, "test"})
                    end
     end
 
@@ -678,8 +700,8 @@ defmodule EctoWatchTest do
         []
       )
 
-      refute_receive {:inserted, Thing, %{}}
-      refute_receive {:inserted, Other, %{}}
+      refute_receive {{Thing, :inserted}, %{}}
+      refute_receive {{Other, :inserted}, %{}}
     end
   end
 
@@ -697,16 +719,16 @@ defmodule EctoWatchTest do
          {%{table_name: :things}, :updated, label: :things_updated}
        ]})
 
-      EctoWatch.subscribe(Thing, :updated)
-      EctoWatch.subscribe(:things_updated, :updated)
+      EctoWatch.subscribe({Thing, :updated})
+      EctoWatch.subscribe(:things_updated)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, %{id: ^already_existing_id1}}
-      assert_receive {:updated, :things_updated, %{id: ^already_existing_id1}}
+      assert_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
+      assert_receive {:things_updated, %{id: ^already_existing_id1}}
 
-      assert_receive {:updated, Thing, %{id: ^already_existing_id2}}
-      assert_receive {:updated, :things_updated, %{id: ^already_existing_id2}}
+      assert_receive {{Thing, :updated}, %{id: ^already_existing_id2}}
+      assert_receive {:things_updated, %{id: ^already_existing_id2}}
     end
 
     test "updates for the primary key", %{
@@ -722,13 +744,13 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+      EctoWatch.subscribe({Thing, :updated}, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      assert_receive {:updated, Thing, %{id: ^already_existing_id1}}
+      assert_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
 
-      refute_receive {:updated, Thing, %{id: ^already_existing_id2}}
+      refute_receive {{Thing, :updated}, %{id: ^already_existing_id2}}
     end
 
     test "updates for an association column", %{
@@ -749,23 +771,22 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :updated, {:parent_thing_id, already_existing_id1})
+      EctoWatch.subscribe({Thing, :updated}, {:parent_thing_id, already_existing_id1})
 
       EctoWatch.subscribe(
         :things_parent_id_updated,
-        :updated,
         {:parent_thing_id, already_existing_id1}
       )
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, %{id: ^already_existing_id1}}
-      refute_receive {:things_parent_id_updated, Thing, %{id: ^already_existing_id1}}
+      refute_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
+      refute_receive {:things_parent_id_updated, %{id: ^already_existing_id1}}
 
-      assert_receive {:updated, Thing,
+      assert_receive {{Thing, :updated},
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
 
-      assert_receive {:updated, :things_parent_id_updated,
+      assert_receive {:things_parent_id_updated,
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
@@ -783,8 +804,7 @@ defmodule EctoWatchTest do
                    ~r/Column other_parent_thing_id is not in the list of extra columns/,
                    fn ->
                      EctoWatch.subscribe(
-                       Thing,
-                       :updated,
+                       {Thing, :updated},
                        {:other_parent_thing_id, already_existing_id2}
                      )
                    end
@@ -803,7 +823,7 @@ defmodule EctoWatchTest do
       assert_raise ArgumentError,
                    ~r/Column the_string is not an association column/,
                    fn ->
-                     EctoWatch.subscribe(Thing, :updated, {:the_string, "test"})
+                     EctoWatch.subscribe({Thing, :updated}, {:the_string, "test"})
                    end
     end
 
@@ -821,22 +841,22 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(:thing_custom_event, :updated, already_existing_id1)
+      EctoWatch.subscribe(:thing_custom_event, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, _, %{id: ^already_existing_id1}}
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      refute_receive {_, %{id: ^already_existing_id1}}
+      refute_receive {_, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999", [])
 
-      assert_receive {:updated, :thing_custom_event, %{id: ^already_existing_id1}}
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      assert_receive {:thing_custom_event, %{id: ^already_existing_id1}}
+      refute_receive {_, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
 
-      assert_receive {:updated, :thing_custom_event, %{id: ^already_existing_id1}}
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      assert_receive {:thing_custom_event, %{id: ^already_existing_id1}}
+      refute_receive {_, %{id: ^already_existing_id2}}
     end
 
     test "extra_columns option", %{
@@ -852,7 +872,7 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :updated, already_existing_id1)
+      EctoWatch.subscribe({Thing, :updated}, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -860,28 +880,28 @@ defmodule EctoWatchTest do
         [already_existing_id1]
       )
 
-      assert_receive {:updated, Thing,
+      assert_receive {{Thing, :updated},
                       %{id: ^already_existing_id1, the_integer: 4455, the_float: 84.52}}
 
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      refute_receive {{_, :updated}, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9999 WHERE id = $1", [
         already_existing_id1
       ])
 
-      assert_receive {:updated, Thing,
+      assert_receive {{Thing, :updated},
                       %{id: ^already_existing_id1, the_integer: 9999, the_float: 84.52}}
 
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      refute_receive {{_, :updated}, %{id: ^already_existing_id2}}
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999 WHERE id = $1", [
         already_existing_id1
       ])
 
-      assert_receive {:updated, Thing,
+      assert_receive {{Thing, :updated},
                       %{id: ^already_existing_id1, the_integer: 9999, the_float: 99.999}}
 
-      refute_receive {:updated, _, %{id: ^already_existing_id2}}
+      refute_receive {{_, :updated}, %{id: ^already_existing_id2}}
     end
 
     test "no notifications without subscribe", %{
@@ -890,9 +910,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
-      refute_receive {:updated, Thing, %{id: ^already_existing_id1}}
+      refute_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
 
-      refute_receive {:updated, Thing, %{id: ^already_existing_id2}}
+      refute_receive {{Thing, :updated}, %{id: ^already_existing_id2}}
     end
   end
 
@@ -910,16 +930,16 @@ defmodule EctoWatchTest do
          {%{table_name: :things}, :deleted, label: :things_deleted}
        ]})
 
-      EctoWatch.subscribe(Thing, :deleted)
-      EctoWatch.subscribe(:things_deleted, :deleted)
+      EctoWatch.subscribe({Thing, :deleted})
+      EctoWatch.subscribe(:things_deleted)
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, %{id: ^already_existing_id1}}
-      assert_receive {:deleted, :things_deleted, %{id: ^already_existing_id1}}
+      assert_receive {{Thing, :deleted}, %{id: ^already_existing_id1}}
+      assert_receive {:things_deleted, %{id: ^already_existing_id1}}
 
-      assert_receive {:deleted, Thing, %{id: ^already_existing_id2}}
-      assert_receive {:deleted, :things_deleted, %{id: ^already_existing_id2}}
+      assert_receive {{Thing, :deleted}, %{id: ^already_existing_id2}}
+      assert_receive {:things_deleted, %{id: ^already_existing_id2}}
     end
 
     test "deletes for the primary key", %{
@@ -935,13 +955,13 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :deleted, already_existing_id1)
+      EctoWatch.subscribe({Thing, :deleted}, already_existing_id1)
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      assert_receive {:deleted, Thing, %{id: ^already_existing_id1}}
+      assert_receive {{Thing, :deleted}, %{id: ^already_existing_id1}}
 
-      refute_receive {:deleted, Thing, %{id: ^already_existing_id2}}
+      refute_receive {{Thing, :deleted}, %{id: ^already_existing_id2}}
     end
 
     test "deletes for an association column", %{
@@ -962,23 +982,22 @@ defmodule EctoWatchTest do
          ]}
       )
 
-      EctoWatch.subscribe(Thing, :deleted, {:parent_thing_id, already_existing_id1})
+      EctoWatch.subscribe({Thing, :deleted}, {:parent_thing_id, already_existing_id1})
 
       EctoWatch.subscribe(
         :things_parent_id_deleted,
-        :deleted,
         {:parent_thing_id, already_existing_id1}
       )
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      refute_receive {:deleted, Thing, %{id: ^already_existing_id1}}
-      refute_receive {:deleted, :things_parent_id_deleted, %{id: ^already_existing_id1}}
+      refute_receive {{Thing, :deleted}, %{id: ^already_existing_id1}}
+      refute_receive {:things_parent_id_deleted, %{id: ^already_existing_id1}}
 
-      assert_receive {:deleted, Thing,
+      assert_receive {{Thing, :deleted},
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
 
-      assert_receive {:deleted, :things_parent_id_deleted,
+      assert_receive {:things_parent_id_deleted,
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
@@ -998,8 +1017,7 @@ defmodule EctoWatchTest do
                    ~r/Column other_parent_thing_id is not in the list of extra columns/,
                    fn ->
                      EctoWatch.subscribe(
-                       Thing,
-                       :deleted,
+                       {Thing, :deleted},
                        {:other_parent_thing_id, already_existing_id2}
                      )
                    end
@@ -1018,7 +1036,7 @@ defmodule EctoWatchTest do
       assert_raise ArgumentError,
                    ~r/Column the_string is not an association column/,
                    fn ->
-                     EctoWatch.subscribe(Thing, :deleted, {:the_string, "test"})
+                     EctoWatch.subscribe({Thing, :deleted}, {:the_string, "test"})
                    end
     end
 
@@ -1028,9 +1046,9 @@ defmodule EctoWatchTest do
     } do
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
-      refute_receive {:deleted, Thing, %{id: ^already_existing_id1}}
+      refute_receive {{Thing, :deleted}, %{id: ^already_existing_id1}}
 
-      refute_receive {:deleted, Thing, %{id: ^already_existing_id2}}
+      refute_receive {{Thing, :deleted}, %{id: ^already_existing_id2}}
     end
   end
 end
