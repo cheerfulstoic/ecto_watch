@@ -3,7 +3,7 @@ defmodule EctoWatch.Options do
   Logic for processing the `EctoWatch` options passed by the end user's config
   """
 
-  alias EctoWatch.WatcherOptions
+  alias EctoWatch.Options.WatcherOptions
 
   defstruct [:repo_mod, :pub_sub_mod, :watchers]
 

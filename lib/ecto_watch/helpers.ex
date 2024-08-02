@@ -25,4 +25,20 @@ defmodule EctoWatch.Helpers do
   rescue
     UndefinedFunctionError -> false
   end
+
+  def validate_list(list, func) when is_list(list) do
+    result =
+      list
+      |> Enum.map(func)
+
+    first_error =
+      result
+      |> Enum.find(&match?({:error, _}, &1))
+
+    first_error || {:ok, Enum.map(result, fn {:ok, value} -> value end)}
+  end
+
+  def validate_list(_, _) do
+    {:error, "should be a list"}
+  end
 end

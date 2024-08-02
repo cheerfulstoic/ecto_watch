@@ -207,7 +207,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :schema_mod option: Expected schema_mod to be an Ecto schema module. Got: NotASchema/,
+                   ~r/invalid value for :watchers option: Expected atom to be an Ecto schema module. Got: NotASchema/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -219,7 +219,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :update_type option: expected one of \[:inserted, :updated, :deleted\], got: :bad_update_type/,
+                   ~r/invalid value for :watchers option: update_type was not one of :inserted, :updated, or :deleted/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -231,7 +231,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: should be either `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`.  Got: {EctoWatchTest.Thing}/,
+                   ~r/invalid value for :watchers option: should be either `{schema_definition, update_type}` or `{schema_definition, update_type, opts}`.  Got: {EctoWatchTest.Thing}/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -243,13 +243,99 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: should be either `{schema_mod, update_type}` or `{schema_mod, update_type, opts}`.  Got: {EctoWatchTest.Thing, :inserted, \[\], :blah}/,
+                   ~r/invalid value for :watchers option: should be either `{schema_definition, update_type}` or `{schema_definition, update_type, opts}`.  Got: {EctoWatchTest.Thing, :inserted, \[\], :blah}/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
                        pub_sub: TestPubSub,
                        watchers: [
                          {Thing, :inserted, [], :blah}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: required :table_name option not found, received options: \[\]/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{}, :inserted, [label: :foo]}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: Label must be used when passing in a map for schema_definition/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things}, :inserted, []}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :primary_key option: expected atom, got: 1/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things, primary_key: 1}, :inserted, [label: :foo]}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :columns option: expected list, got: 1/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things, columns: 1}, :inserted, [label: :foo]}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid list in :columns option: invalid value for list element at position 0: expected atom, got: 1/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things, columns: [1]}, :inserted, [label: :foo]}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid value for :association_columns option: expected list, got: 1/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things, association_columns: 1}, :inserted,
+                          [label: :foo]}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/invalid value for :watchers option: invalid list in :association_columns option: invalid value for list element at position 0: expected atom, got: 1/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {%{table_name: :things, association_columns: [1]}, :inserted,
+                          [label: :foo]}
                        ]
                      )
                    end
@@ -298,7 +384,7 @@ defmodule EctoWatchTest do
 
     test "columns must be in schema" do
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
+                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Invalid column: :not_a_column \(expected to be in \[:id, :the_string, :the_integer, :the_float, :parent_thing_id, :other_parent_thing_id, :inserted_at, :updated_at\]\)/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -317,7 +403,7 @@ defmodule EctoWatchTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :extra_columns option: Invalid columns for EctoWatchTest.Thing: \[:not_a_column, :another_bad_column\]/,
+                   ~r/invalid value for :watchers option: invalid value for :extra_columns option: Invalid column: :not_a_column \(expected to be in \[:id, :the_string, :the_integer, :the_float, :parent_thing_id, :other_parent_thing_id, :inserted_at, :updated_at\]\)/,
                    fn ->
                      EctoWatch.start_link(
                        repo: TestRepo,
@@ -367,12 +453,7 @@ defmodule EctoWatchTest do
     end
 
     test "Empty list of watcher is allowed" do
-      start_supervised!(
-        {EctoWatch,
-         repo: TestRepo,
-         pub_sub: TestPubSub,
-         watchers: []}
-      )
+      start_supervised!({EctoWatch, repo: TestRepo, pub_sub: TestPubSub, watchers: []})
     end
 
     test "subscribe requires proper Ecto schema", %{
@@ -466,18 +547,22 @@ defmodule EctoWatchTest do
 
   describe "inserts" do
     test "get notification about inserts" do
-      start_supervised!(
-        {EctoWatch,
-         repo: TestRepo,
-         pub_sub: TestPubSub,
-         watchers: [
-           {Thing, :inserted},
-           {Other, :inserted}
-         ]}
-      )
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :inserted},
+         {Other, :inserted},
+         # schemaless definition
+         {%{table_name: :things}, :inserted, label: :things_inserted},
+         {%{table_name: :other, schema_prefix: "0xabcd", primary_key: :weird_id}, :inserted,
+          label: :other_inserted}
+       ]})
 
       EctoWatch.subscribe(Thing, :inserted)
       EctoWatch.subscribe(Other, :inserted)
+      EctoWatch.subscribe(:things_inserted, :inserted)
+      EctoWatch.subscribe(:other_inserted, :inserted)
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -492,7 +577,9 @@ defmodule EctoWatchTest do
       )
 
       assert_receive {:inserted, Thing, %{id: 3}}
+      assert_receive {:inserted, :things_inserted, %{id: 3}}
       assert_receive {:inserted, Other, %{weird_id: 1234}}
+      assert_receive {:inserted, :other_inserted, %{weird_id: 1234}}
     end
 
     test "inserts for an association column", %{already_existing_id2: already_existing_id2} do
@@ -501,11 +588,22 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :inserted, extra_columns: [:parent_thing_id]}
+           {Thing, :inserted, extra_columns: [:parent_thing_id]},
+           {%{
+              table_name: :things,
+              columns: [:parent_thing_id],
+              association_columns: [:parent_thing_id]
+            }, :inserted, extra_columns: [:parent_thing_id], label: :things_parent_id_inserted}
          ]}
       )
 
       EctoWatch.subscribe(Thing, :inserted, {:parent_thing_id, already_existing_id2})
+
+      EctoWatch.subscribe(
+        :things_parent_id_inserted,
+        :inserted,
+        {:parent_thing_id, already_existing_id2}
+      )
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -514,6 +612,9 @@ defmodule EctoWatchTest do
       )
 
       assert_receive {:inserted, Thing, %{id: 3, parent_thing_id: ^already_existing_id2}}
+
+      assert_receive {:inserted, :things_parent_id_inserted,
+                      %{id: 3, parent_thing_id: ^already_existing_id2}}
     end
 
     test "column is not in list of extra_columns", %{already_existing_id2: already_existing_id2} do
@@ -587,22 +688,25 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
-      start_supervised!(
-        {EctoWatch,
-         repo: TestRepo,
-         pub_sub: TestPubSub,
-         watchers: [
-           {Thing, :updated}
-         ]}
-      )
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :updated},
+         # schemaless definition
+         {%{table_name: :things}, :updated, label: :things_updated}
+       ]})
 
       EctoWatch.subscribe(Thing, :updated)
+      EctoWatch.subscribe(:things_updated, :updated)
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
       assert_receive {:updated, Thing, %{id: ^already_existing_id1}}
+      assert_receive {:updated, :things_updated, %{id: ^already_existing_id1}}
 
       assert_receive {:updated, Thing, %{id: ^already_existing_id2}}
+      assert_receive {:updated, :things_updated, %{id: ^already_existing_id2}}
     end
 
     test "updates for the primary key", %{
@@ -636,17 +740,32 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :updated, extra_columns: [:parent_thing_id]}
+           {Thing, :updated, extra_columns: [:parent_thing_id]},
+           {%{
+              table_name: :things,
+              columns: [:parent_thing_id],
+              association_columns: [:parent_thing_id]
+            }, :updated, extra_columns: [:parent_thing_id], label: :things_parent_id_updated}
          ]}
       )
 
       EctoWatch.subscribe(Thing, :updated, {:parent_thing_id, already_existing_id1})
 
+      EctoWatch.subscribe(
+        :things_parent_id_updated,
+        :updated,
+        {:parent_thing_id, already_existing_id1}
+      )
+
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
 
       refute_receive {:updated, Thing, %{id: ^already_existing_id1}}
+      refute_receive {:things_parent_id_updated, Thing, %{id: ^already_existing_id1}}
 
       assert_receive {:updated, Thing,
+                      %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
+
+      assert_receive {:updated, :things_parent_id_updated,
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
@@ -782,22 +901,25 @@ defmodule EctoWatchTest do
       already_existing_id1: already_existing_id1,
       already_existing_id2: already_existing_id2
     } do
-      start_supervised!(
-        {EctoWatch,
-         repo: TestRepo,
-         pub_sub: TestPubSub,
-         watchers: [
-           {Thing, :deleted}
-         ]}
-      )
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :deleted},
+         # schemaless definition
+         {%{table_name: :things}, :deleted, label: :things_deleted}
+       ]})
 
       EctoWatch.subscribe(Thing, :deleted)
+      EctoWatch.subscribe(:things_deleted, :deleted)
 
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
       assert_receive {:deleted, Thing, %{id: ^already_existing_id1}}
+      assert_receive {:deleted, :things_deleted, %{id: ^already_existing_id1}}
 
       assert_receive {:deleted, Thing, %{id: ^already_existing_id2}}
+      assert_receive {:deleted, :things_deleted, %{id: ^already_existing_id2}}
     end
 
     test "deletes for the primary key", %{
@@ -831,17 +953,32 @@ defmodule EctoWatchTest do
          repo: TestRepo,
          pub_sub: TestPubSub,
          watchers: [
-           {Thing, :deleted, extra_columns: [:parent_thing_id]}
+           {Thing, :deleted, extra_columns: [:parent_thing_id]},
+           {%{
+              table_name: :things,
+              columns: [:parent_thing_id],
+              association_columns: [:parent_thing_id]
+            }, :deleted, extra_columns: [:parent_thing_id], label: :things_parent_id_deleted}
          ]}
       )
 
       EctoWatch.subscribe(Thing, :deleted, {:parent_thing_id, already_existing_id1})
 
+      EctoWatch.subscribe(
+        :things_parent_id_deleted,
+        :deleted,
+        {:parent_thing_id, already_existing_id1}
+      )
+
       Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
 
       refute_receive {:deleted, Thing, %{id: ^already_existing_id1}}
+      refute_receive {:deleted, :things_parent_id_deleted, %{id: ^already_existing_id1}}
 
       assert_receive {:deleted, Thing,
+                      %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
+
+      assert_receive {:deleted, :things_parent_id_deleted,
                       %{id: ^already_existing_id2, parent_thing_id: ^already_existing_id1}}
     end
 
