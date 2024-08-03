@@ -213,6 +213,10 @@ Supported keys for configuring a table without a schema:
 
 ## Notes
 
+### Dealing with leftover PostgreSQL triggers
+
+Because of the nature of delegating to a trigger in PostgreSQL, you can end up with leftover triggers and functions in the database (e.g. if you remove a watcher or change a watcher's label).  If you have `EctoWatch` in your application tree (even with an empty list of watchers) it will output (error-level) logs to warn you about any extra triggers and functions.  If you would like to clean these up you can start your application with the `ECTO_WATCH_CLEANUP` environment variable set to `cleanup` and `EctoWatch` will delete any triggers and functions which wouldn't be created by the current watcher configuration.
+
 ### Why only send the id and not the full record?
 
 The main reason: The `pg_notify` function has a limit of 8000 characters and wasn't created to send full-records on updates.

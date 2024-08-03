@@ -5,6 +5,7 @@ defmodule EctoWatch.WatcherServer do
 
   alias EctoWatch.Helpers
   alias EctoWatch.Options.WatcherOptions
+  alias EctoWatch.WatcherSupervisor
 
   use GenServer
 
@@ -14,12 +15,36 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
+  def details(pid) when is_pid(pid) do
+    GenServer.call(pid, :details)
+  end
+
+  def details(identifier) do
+    with {:ok, pid} <- find(identifier) do
+      GenServer.call(pid, :details)
+    end
+  end
+
   defp find(identifier) do
     name = unique_label(identifier)
 
     case Process.whereis(name) do
       nil -> {:error, "No watcher found for #{inspect(identifier)}"}
       pid -> {:ok, pid}
+    end
+  end
+
+  def watcher_details do
+    case Process.whereis(WatcherSupervisor) do
+      nil ->
+        {:error, "WatcherSupervisor is not running!"}
+
+      pid ->
+        {:ok,
+         Supervisor.which_children(pid)
+         |> Enum.map(fn {_, pid, :worker, [EctoWatch.WatcherServer]} ->
+           details(pid)
+         end)}
     end
   end
 
@@ -54,10 +79,12 @@ defmodule EctoWatch.WatcherServer do
       [options.schema_definition.primary_key | options.extra_columns]
       |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
 
+    details = watcher_details(%{unique_label: unique_label, repo_mod: repo_mod, options: options})
+
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      CREATE OR REPLACE FUNCTION \"#{options.schema_definition.schema_prefix}\".#{unique_label}_func()
+      CREATE OR REPLACE FUNCTION \"#{options.schema_definition.schema_prefix}\".#{details.function_name}()
         RETURNS trigger AS $trigger$
         DECLARE
           row record;
@@ -65,7 +92,7 @@ defmodule EctoWatch.WatcherServer do
         BEGIN
           row := COALESCE(NEW, OLD);
           payload := jsonb_build_object('type','#{options.update_type}','values',json_build_object(#{columns_sql}));
-          PERFORM pg_notify('#{unique_label}', payload);
+          PERFORM pg_notify('#{details.notify_channel}', payload);
 
           RETURN NEW;
         END;
@@ -78,7 +105,7 @@ defmodule EctoWatch.WatcherServer do
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      DROP TRIGGER IF EXISTS #{unique_label}_trigger on \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\";
+      DROP TRIGGER IF EXISTS #{details.trigger_name} on \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\";
       """,
       []
     )
@@ -86,9 +113,9 @@ defmodule EctoWatch.WatcherServer do
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
-      CREATE TRIGGER #{unique_label}_trigger
+      CREATE TRIGGER #{details.trigger_name}
         AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
-        EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{unique_label}_func();
+        EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
       """,
       []
     )
@@ -98,6 +125,7 @@ defmodule EctoWatch.WatcherServer do
 
     {:ok,
      %{
+       repo_mod: repo_mod,
        pub_sub_mod: pub_sub_mod,
        unique_label: unique_label,
        identifier_columns:
@@ -141,6 +169,10 @@ defmodule EctoWatch.WatcherServer do
     {:reply, result, state}
   end
 
+  def handle_call(:details, _from, state) do
+    {:reply, watcher_details(state), state}
+  end
+
   defp validate_subscription(state, identifier, column) do
     cond do
       match?({_, :inserted}, identifier) && column == state.options.schema_definition.primary_key ->
@@ -159,8 +191,10 @@ defmodule EctoWatch.WatcherServer do
   end
 
   def handle_info({:notification, _pid, _ref, channel_name, payload}, state) do
-    if channel_name != state.unique_label do
-      raise "Expected to receive message from #{state.unique_label}, but received from #{channel_name}"
+    details = watcher_details(state)
+
+    if channel_name != details.notify_channel do
+      raise "Expected to receive message from #{details.notify_channel}, but received from #{channel_name}"
     end
 
     %{"type" => type, "values" => returned_values} = Jason.decode!(payload)
@@ -189,6 +223,16 @@ defmodule EctoWatch.WatcherServer do
     end
 
     {:noreply, state}
+  end
+
+  defp watcher_details(%{unique_label: unique_label, repo_mod: repo_mod, options: options}) do
+    %{
+      repo_mod: repo_mod,
+      schema_definition: options.schema_definition,
+      function_name: "#{unique_label}_func",
+      notify_channel: unique_label,
+      trigger_name: "#{unique_label}_trigger"
+    }
   end
 
   def topics(update_type, unique_label, returned_values, identifier_columns)

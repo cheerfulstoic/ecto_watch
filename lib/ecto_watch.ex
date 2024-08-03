@@ -1,8 +1,9 @@
 defmodule EctoWatch do
   @moduledoc false
 
-  alias EctoWatch.WatcherServer
   alias EctoWatch.Helpers
+  alias EctoWatch.WatcherServer
+  alias EctoWatch.WatcherTriggerValidator
 
   use Supervisor
 
@@ -183,7 +184,8 @@ defmodule EctoWatch do
 
     children = [
       {Postgrex.Notifications, postgrex_notifications_options},
-      {EctoWatch.WatcherSupervisor, options}
+      {EctoWatch.WatcherSupervisor, options},
+      {WatcherTriggerValidator, nil}
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
