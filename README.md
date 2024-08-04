@@ -98,17 +98,17 @@ You can also setup the database to trigger only on specific column changes on `:
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {MyApp.Accounts.User, :updated, trigger_columns: [:email, :phone], label: :user_contact_info},
+     {MyApp.Accounts.User, :updated, trigger_columns: [:email, :phone], label: :user_contact_info_updated},
      # ...
    ]}
 
   # subscribing
-  EctoWatch.subscribe(:user_contact_info, :updated)
+  EctoWatch.subscribe(:user_contact_info_updated, :updated)
   # or...
-  EctoWatch.subscribe(:user_contact_info, :updated, package.id)
+  EctoWatch.subscribe(:user_contact_info_updated, :updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_contact_info, %{id: id}}, socket) do
+  def handle_info({:updated, :user_contact_info_updated, %{id: id}}, socket) do
 ```
 
 A label is required for two reasons:
