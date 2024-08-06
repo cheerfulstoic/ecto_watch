@@ -8,14 +8,21 @@ Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the a
 
  * Developers may forget to call these functions and make updates directly through `MyApp.Repo.*`.
  * Often different standards of PubSub messages are used. [^1]
- * Often full records are sent which can scale poorly since messages in Elixir are copied in memory when sent.
+ * Often full records are used which can scale poorly since messages in Elixir are copied in memory when sent.
  * Sometimes records are sent preloaded with different associations in different cases, requiring either careful coordination or sending all associations regardless of where they are needed.
 
 By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* change (even changes from other clients of the database).  EctoWatch also establishes a simple, standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent (makeing for smaller messages).
 
+## Example use-cases for `EctoWatch`
+
+ * Updating LiveView in real-time
+ * Sending emails when a record is updated
+ * Updating a cache when a record is updated
+ * Sending a webhook request to inform another system about a change
+
 ## Usage
 
-To use EctoWatch, you need to add it to your supervision tree and specify watches for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
+To use EctoWatch, you need to add it to your supervision tree and specify watchers for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
 
 ```elixir
   {EctoWatch,
@@ -32,7 +39,7 @@ To use EctoWatch, you need to add it to your supervision tree and specify watche
 
 This will setup:
 
- * triggers in PostgreSQL on application startup
+ * triggers in PostgreSQL during application startup
  * an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
 
 Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can subscribe to messages like so:
@@ -51,18 +58,18 @@ Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can s
 You can also subscribe to individual records:
 
 ```elixir
-  EctoWatch.subscribe(MyApp.Accounts.Package, :updated, package.id)
-  EctoWatch.subscribe(MyApp.Accounts.Package, :deleted, package.id)
+  EctoWatch.subscribe(MyApp.Accounts.User, :updated, user.id)
+  EctoWatch.subscribe(MyApp.Accounts.User, :deleted, user.id)
 ```
 
-... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list! See below for more info on the `extra_columns` option):
+... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
 ```elixir
-  EctoWatch.subscribe(MyApp.Accounts.Package, :updated, {:post_id, post.id})
-  EctoWatch.subscribe(MyApp.Accounts.Package, :deleted, {:post_id, post.id})
+  EctoWatch.subscribe(MyApp.Accounts.User, :updated, {:role_id, role.id})
+  EctoWatch.subscribe(MyApp.Accounts.User, :deleted, {:role_id, role.id})
 ```
 
-Once subscribed, messages can be handled like so (LiveView example given here but `handle_info` callbacks can be used elsewhere as well):
+Once subscribed, messages can be handled like so (LiveView example are given here but `handle_info` callbacks can be used elsewhere as well):
 
 ```elixir
   def handle_info({:inserted, MyApp.Accounts.User, %{id: id}}, socket) do
@@ -142,14 +149,14 @@ You can also use labels in general without tracking specific columns:
 
 If you would like to get more than just the `id` from the record, you can use the `extra_columns` option.
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > The `extra_columns` option should be used with care because:
 > 
 >  * The `pg_notify` function has a limit of 8000 characters and wasn't created to send full-records on updates.
 >  * If many updates are done in quick succession to the same record, subscribers will need to process all of the old results before getting to the newest one.
-> 
+>
 > Thus using `extra_columns` with columns that change often may not be what you want.
-> 
+>
 > One use-case where using `extra_columns` may be particularly useful is if you want to receive updates about the deletion of a record and you need to know one of it's foreign keys.  E.g. in a blog, if a `Comment` is deleted you might want to get the `post_id` to refresh any caches related to comments.
 
 ```elixir
@@ -167,7 +174,8 @@ If you would like to get more than just the `id` from the record, you can use th
   EctoWatch.subscribe(MyApp.Posts.Comment, :deleted)
 
   # handling messages
-  def handle_info({:updated, MyApp.Posts.Comment, %{id: id, post_id: post_id}}, socket) do
+  def handle_info({:deleted, MyApp.Posts.Comment, %{id: id, post_id: post_id}}, socket) do
+    MyApp.Posts.refresh_cache(post_id)
 ```
 
 ## Watching without a schema
@@ -201,13 +209,6 @@ Supported keys for configuring a table without a schema:
  * `columns` (optional, defaults to `[]`)
  * `association_columns` (optional, defaults to `[]`)
 
-## Example use-cases
-
- * Updating LiveView in real-time
- * Sending emails when a record is updated
- * Updating a cache when a record is updated
- * Sending a webhook request to inform another system about a change
-
 ## Notes
 
 ### Why only send the id and not the full record?
@@ -216,13 +217,13 @@ The main reason: The `pg_notify` function has a limit of 8000 characters and was
 
 Also if many updates are done in quick succession to the same record, subscribers will need to process all of the old results before getting to the newest one.  For example if a LiveView is a subscriber it may get 10 updates about a record to the browser.  If the LiveView has to make a query then it will be more likely to get the latest data.  Since LiveView doesn't send updates when nothing has changed in the view for the user, this will mean less traffic to the browsers.
 
-### Why not send the `extra_columns` inside of a schema struct?
+### Why not send the values inside of a schema struct?
 
-If an application were to take the extra data from an event and pass it to some other part of the app, it may seem like the missig fields were actually missing from the database.  Since the data sent due to `extra_columns` being sent isn't a complete load of the record, it doesn't make sense to send the whole struct.
+If an application were to take the extra data from an event and pass it to some other part of the app, it may seem like the missing fields were actually missing from the database.  Since the data sent due to `extra_columns` isn't a complete load of the record, it doesn't make sense to send the whole struct.
 
 ### Scaling of queries
 
-If you have many processes which are subscribed to updates and each process, on receiving the message, makes a query to the database, this can lead to many queries.  You may solve this by creating a GenServer which listens for messages and then makes a single query to the database (e.g. every X milliseconds) to get all the records that need to be updated, passing them on via another `PubSub` message.
+If you have many processes which are subscribed to updates and each process makes a DB query on receiving the message this could lead to many queries.  You may solve this by creating a GenServer which listens for messages and then makes a single query to the database (e.g. every X milliseconds) to get all the records that need to be updated, passing them on via another `PubSub` message.
 
 This may be added later as a feature of `EctoWatch`.
 
@@ -256,7 +257,7 @@ by adding `ecto_watch` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.6.0"}
+    {:ecto_watch, "~> 0.7.0"}
   ]
 end
 ```
