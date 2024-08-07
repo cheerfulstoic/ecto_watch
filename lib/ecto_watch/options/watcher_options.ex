@@ -170,7 +170,8 @@ defmodule EctoWatch.Options.WatcherOptions do
   def validate_trigger_columns(columns, label, schema_definition, update_type) do
     cond do
       update_type != :updated ->
-        {:error, "Cannot listen to trigger_columns for `#{update_type}` events."}
+        {:error,
+         "Cannot listen to trigger_columns for `#{update_type}` events (only for `#{:updated}` events."}
 
       label == nil ->
         {:error, "Label must be used when trigger_columns are specified."}
