@@ -48,12 +48,12 @@ This will setup:
 Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can subscribe to messages like so:
 
 ```elixir
-  EctoWatch.subscribe(User, :inserted)
-  EctoWatch.subscribe(User, :updated)
-  EctoWatch.subscribe(User, :deleted)
+  EctoWatch.subscribe({User, :inserted})
+  EctoWatch.subscribe({User, :updated})
+  EctoWatch.subscribe({User, :deleted})
 
-  EctoWatch.subscribe(Package, :inserted)
-  EctoWatch.subscribe(Package, :updated)
+  EctoWatch.subscribe({Package, :inserted})
+  EctoWatch.subscribe({Package, :updated})
 ```
 
 (note that if you are subscribing in a LiveView `mount` callback you should subscribe inside of a `if connected?(socket) do` to avoid subscribing twice).
@@ -61,15 +61,15 @@ Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can s
 You can also subscribe to individual records:
 
 ```elixir
-  EctoWatch.subscribe(User, :updated, user.id)
-  EctoWatch.subscribe(User, :deleted, user.id)
+  EctoWatch.subscribe({User, :updated}, user.id)
+  EctoWatch.subscribe({User, :deleted}, user.id)
 ```
 
 ... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
 ```elixir
-  EctoWatch.subscribe(User, :updated, {:role_id, role.id})
-  EctoWatch.subscribe(User, :deleted, {:role_id, role.id})
+  EctoWatch.subscribe({User, :updated}, {:role_id, role.id})
+  EctoWatch.subscribe({User, :deleted}, {:role_id, role.id})
 ```
 
 Once subscribed, messages can be handled like so (LiveView example are given here but `handle_info` callbacks can be used elsewhere as well):
@@ -173,7 +173,7 @@ If you would like to get more than just the `id` from the record, you can use th
    ]}
 
   # subscribing
-  EctoWatch.subscribe(Comment, :deleted)
+  EctoWatch.subscribe({Comment, :deleted})
 
   # handling messages
   def handle_info({{Comment, :deleted}, %{id: id, post_id: post_id}}, socket) do
