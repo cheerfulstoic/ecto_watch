@@ -30,6 +30,8 @@ defmodule EctoWatch do
               # schemas:
               def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
 
+            PLEASE NOTE the flipped order of `User` and `:updated` in the tuple!
+
             See the updated documentation for subscribing."
             """
     else
@@ -52,6 +54,8 @@ defmodule EctoWatch do
               def handle_info({{User, :updated}, %{id: id}}, socket) do
               # schemas:
               def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
+
+            PLEASE NOTE the flipped order of `User` and `:updated` in the tuple!
 
             See the updated documentation for subscribing."
             """
@@ -81,6 +85,8 @@ defmodule EctoWatch do
                 # schemas:
                 def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
 
+              PLEASE NOTE the flipped order of `User` and `:updated` in the tuple!
+
               See the updated documentation for subscribing."
               """
       else
@@ -103,6 +109,8 @@ defmodule EctoWatch do
                 def handle_info({{User, :updated}, %{id: id}}, socket) do
                 # schemas:
                 def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
+
+              PLEASE NOTE the flipped order of `User` and `:updated` in the tuple!
 
               See the updated documentation for subscribing."
               """
