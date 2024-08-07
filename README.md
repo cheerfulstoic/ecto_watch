@@ -25,15 +25,18 @@ By getting updates directly from PostgreSQL, EctoWatch ensures that messages are
 To use EctoWatch, you need to add it to your supervision tree and specify watchers for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
 
 ```elixir
+  alias MyApp.Accounts.User
+  alias MyApp.Accounts.Package
+
   {EctoWatch,
    repo: MyApp.Repo,
    pub_sub: MyApp.PubSub,
    watchers: [
-     {MyApp.Accounts.User, :inserted},
-     {MyApp.Accounts.User, :updated},
-     {MyApp.Accounts.User, :deleted},
-     {MyApp.Shipping.Package, :inserted},
-     {MyApp.Shipping.Package, :updated}
+     {User, :inserted},
+     {User, :updated},
+     {User, :deleted},
+     {Package, :inserted},
+     {Package, :updated}
    ]}
 ```
 
@@ -45,12 +48,12 @@ This will setup:
 Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can subscribe to messages like so:
 
 ```elixir
-  EctoWatch.subscribe(MyApp.Accounts.User, :inserted)
-  EctoWatch.subscribe(MyApp.Accounts.User, :updated)
-  EctoWatch.subscribe(MyApp.Accounts.User, :deleted)
+  EctoWatch.subscribe(User, :inserted)
+  EctoWatch.subscribe(User, :updated)
+  EctoWatch.subscribe(User, :deleted)
 
-  EctoWatch.subscribe(MyApp.Shipping.Package, :inserted)
-  EctoWatch.subscribe(MyApp.Shipping.Package, :updated)
+  EctoWatch.subscribe(Package, :inserted)
+  EctoWatch.subscribe(Package, :updated)
 ```
 
 (note that if you are subscribing in a LiveView `mount` callback you should subscribe inside of a `if connected?(socket) do` to avoid subscribing twice).
@@ -58,37 +61,36 @@ Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can s
 You can also subscribe to individual records:
 
 ```elixir
-  EctoWatch.subscribe(MyApp.Accounts.User, :updated, user.id)
-  EctoWatch.subscribe(MyApp.Accounts.User, :deleted, user.id)
+  EctoWatch.subscribe(User, :updated, user.id)
+  EctoWatch.subscribe(User, :deleted, user.id)
 ```
 
 ... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
 ```elixir
-  EctoWatch.subscribe(MyApp.Accounts.User, :updated, {:role_id, role.id})
-  EctoWatch.subscribe(MyApp.Accounts.User, :deleted, {:role_id, role.id})
+  EctoWatch.subscribe(User, :updated, {:role_id, role.id})
+  EctoWatch.subscribe(User, :deleted, {:role_id, role.id})
 ```
 
 Once subscribed, messages can be handled like so (LiveView example are given here but `handle_info` callbacks can be used elsewhere as well):
 
 ```elixir
-  def handle_info({:inserted, MyApp.Accounts.User, %{id: id}}, socket) do
+  def handle_info({{User, :inserted}, %{id: id}}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:updated, MyApp.Accounts.User, %{id: id}}, socket) do
+  def handle_info({{User, :updated}, %{id: id}}, socket) do
     user = Accounts.get_user(id)
     socket = stream_insert(socket, :users, user)
 
     {:noreply, socket}
   end
 
-  def handle_info({:deleted, MyApp.Accounts.User, %{id: id}}, socket) do
-    user = Accounts.get_user(id)
-    socket = stream_delete(socket, :users, user)
+  def handle_info({{User, :deleted}, %{id: id}}, socket) do
+    socket = stream_delete_by_dom_id(socket, :songs, "users-#{id}")
 
     {:noreply, socket}
   end
@@ -105,17 +107,17 @@ You can also setup the database to trigger only on specific column changes on `:
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {MyApp.Accounts.User, :updated, trigger_columns: [:email, :phone], label: :user_contact_info_updated},
+     {User, :updated, trigger_columns: [:email, :phone], label: :user_contact_info_updated},
      # ...
    ]}
 
   # subscribing
-  EctoWatch.subscribe(:user_contact_info_updated, :updated)
+  EctoWatch.subscribe(:user_contact_info_updated)
   # or...
-  EctoWatch.subscribe(:user_contact_info_updated, :updated, package.id)
+  EctoWatch.subscribe(:user_contact_info_updated, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_contact_info_updated, %{id: id}}, socket) do
+  def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
 ```
 
 A label is required for two reasons:
@@ -132,17 +134,17 @@ You can also use labels in general without tracking specific columns:
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {MyApp.Accounts.User, :updated, label: :user_update},
+     {User, :updated, label: :user_update},
      # ...
    ]}
 
   # subscribing
-  EctoWatch.subscribe(:user_update, :updated)
+  EctoWatch.subscribe(:user_update)
   # or...
-  EctoWatch.subscribe(:user_update, :updated, package.id)
+  EctoWatch.subscribe(:user_update, package.id)
 
   # handling messages
-  def handle_info({:updated, :user_update, %{id: id}}, socket) do
+  def handle_info({:user_update, %{id: id}}, socket) do
 ```
 
 ## Getting additional values
@@ -166,16 +168,16 @@ If you would like to get more than just the `id` from the record, you can use th
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {MyApp.Posts.Comment, :deleted, extra_columns: [:post_id]},
+     {Comment, :deleted, extra_columns: [:post_id]},
      # ...
    ]}
 
   # subscribing
-  EctoWatch.subscribe(MyApp.Posts.Comment, :deleted)
+  EctoWatch.subscribe(Comment, :deleted)
 
   # handling messages
-  def handle_info({:deleted, MyApp.Posts.Comment, %{id: id, post_id: post_id}}, socket) do
-    MyApp.Posts.refresh_cache(post_id)
+  def handle_info({{Comment, :deleted}, %{id: id, post_id: post_id}}, socket) do
+    Posts.refresh_cache(post_id)
 ```
 
 ## Watching without a schema
@@ -257,7 +259,7 @@ by adding `ecto_watch` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.7.0"}
+    {:ecto_watch, "~> 0.8.0"}
   ]
 end
 ```
