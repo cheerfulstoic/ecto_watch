@@ -108,7 +108,7 @@ by adding `ecto_watch` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.8.1"}
+    {:ecto_watch, "~> 0.9.4"}
   ]
 end
 ```
