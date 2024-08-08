@@ -1,7 +1,5 @@
 defmodule EctoWatch.Options do
-  @moduledoc """
-  Logic for processing the `EctoWatch` options passed by the end user's config
-  """
+  @moduledoc false
 
   alias EctoWatch.Options.WatcherOptions
 

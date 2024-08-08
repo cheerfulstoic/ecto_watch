@@ -1,6 +1,8 @@
 defmodule EctoWatch.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/cheerfulstoic/ecto_watch"
+
   def project do
     [
       app: :ecto_watch,
@@ -11,7 +13,11 @@ defmodule EctoWatch.MixProject do
       licenses: ["MIT"],
       package: package(),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+
+      # Docs
+      name: "EctoWatch",
+      docs: docs()
     ]
   end
 
@@ -19,7 +25,7 @@ defmodule EctoWatch.MixProject do
     [
       maintainers: ["Brian Underwood"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/cheerfulstoic/ecto_watch"}
+      links: %{"GitHub" => @source_url}
     ]
   end
 
@@ -41,6 +47,44 @@ defmodule EctoWatch.MixProject do
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "EctoWatch",
+      extra_section: "GUIDES",
+      source_url: @source_url,
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
+      extras: extras(),
+      groups_for_extras: groups_for_extras()
+      # groups_for_docs: [
+      #   group_for_function("Test")
+      # ]
+    ]
+  end
+
+  def extras() do
+    [
+      "guides/introduction/Getting Started.md",
+      "guides/introduction/Tracking specific columns and using labels.md",
+      "guides/introduction/Getting additional values.md",
+      "guides/introduction/Watching without a schema.md",
+      "guides/introduction/Notes.md",
+      "guides/howtos/Upgrading Versions.md",
+      "guides/other/Potental TODOs.md",
+      "CHANGELOG.md"
+    ]
+  end
+
+  defp group_for_function(group), do: {String.to_atom(group), &(&1[:group] == group)}
+
+  defp groups_for_extras do
+    [
+      Introduction: ~r/guides\/introduction\/.?/,
+      # Cheatsheets: ~r/cheatsheets\/.?/,
+      "How-To's": ~r/guides\/howtos\/.?/,
+      Other: ~r/guides\/other\/.?/
     ]
   end
 end

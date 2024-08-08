@@ -1,10 +1,8 @@
 defmodule EctoWatch.Options.WatcherOptions do
+  @moduledoc false
+
   alias EctoWatch.Helpers
 
-  @moduledoc """
-  Logic for processing the `EctoWatch` postgres notification watcher options
-  which are passed in by the end user's config
-  """
   defstruct [:schema_definition, :update_type, :label, :trigger_columns, :extra_columns]
 
   def validate_list(list) do
@@ -12,10 +10,8 @@ defmodule EctoWatch.Options.WatcherOptions do
   end
 
   defmodule SchemaDefinition do
-    @moduledoc """
-    Generic representation of an app schema.  Contains important details about a postgres table,
-    whether it's create from an Ecto schema module or from a map.
-    """
+    @moduledoc false
+
     defstruct [
       :schema_prefix,
       :table_name,

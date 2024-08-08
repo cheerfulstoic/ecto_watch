@@ -1,7 +1,9 @@
 defmodule EctoWatch.WatcherTriggerValidator do
   @moduledoc """
-  Task run as part of the EctoWatch supervision tree to check for a match between the triggers
+  Intenal task run as part of the EctoWatch supervision tree to check for a match between the triggers
   that are in the database and the triggers that were started via the configuration.
+
+  Used internally, but you'll see it in your application supervision tree.
   """
 
   alias EctoWatch.WatcherServer

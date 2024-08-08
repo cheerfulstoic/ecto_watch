@@ -5,12 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> NOTE: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide if you're having an issue after upgrading.
+
 ## [0.9.0] - 2023-08-07
 
 ### Added
 
 - Warnings when there are extra triggers / function in the database
-- Supprot for auto-deleting triggers and functions when the `ECTO_WATCH_CLEANUP` environment variable is set to `cleanup`
+- Support for auto-deleting triggers and functions when the `ECTO_WATCH_CLEANUP` environment variable is set to `cleanup`
 
 ## [0.8.1] - 2023-08-07
 

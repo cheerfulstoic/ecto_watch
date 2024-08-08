@@ -1,5 +1,7 @@
 defmodule EctoWatch do
-  @moduledoc false
+  @moduledoc """
+  A library to allow you to easily get notifications about database changes directly from PostgreSQL.
+  """
 
   alias EctoWatch.Helpers
   alias EctoWatch.WatcherServer
@@ -7,6 +9,8 @@ defmodule EctoWatch do
 
   use Supervisor
 
+  @since "0.8.0"
+  @deprecated "subscribe/3 was removed in version 0.8.0. See the updated documentation"
   def subscribe(schema_mod_or_label, update_type, id) when is_atom(schema_mod_or_label) do
     if Helpers.ecto_schema_mod?(schema_mod_or_label) do
       raise ArgumentError,
@@ -63,6 +67,26 @@ defmodule EctoWatch do
     end
   end
 
+  @doc """
+  Subscribe to notifications from watchers.
+
+  Examples:
+
+      iex> EctoWatch.subscribe({Comment, :updated})
+
+    When subscribing to a watcher with the `label` option specified as `:comment_updated_custom`:
+
+      iex> EctoWatch.subscribe(:comment_updated_custom)
+
+    You can subscribe to notifications just from specific primary key values:
+
+      iex> EctoWatch.subscribe({Comment, :updated}, user_id)
+
+    Or you can subscribe to notifications just from a specific foreign column (**the column must be in the watcher's `extra_columns` list):
+
+      iex> EctoWatch.subscribe({Comment, :updated}, {:post_id, post_id})
+  """
+  @spec subscribe(identifier(), term()) :: :ok | {:error, term()}
   def subscribe(identifier, id \\ nil) do
     if is_atom(identifier) && id in ~w[inserted updated deleted]a do
       if Helpers.ecto_schema_mod?(identifier) do

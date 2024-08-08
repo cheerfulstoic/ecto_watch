@@ -1,5 +1,5 @@
 defmodule EctoWatch.TestRepo do
-  @moduledoc "Repo for tests"
+  @moduledoc false
 
   use Ecto.Repo,
     otp_app: :ecto_watch,

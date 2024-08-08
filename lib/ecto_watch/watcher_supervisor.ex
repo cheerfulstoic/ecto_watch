@@ -1,6 +1,8 @@
 defmodule EctoWatch.WatcherSupervisor do
   @moduledoc """
-  Supervisor for postgres notification watchers (`EctoWatch.WatcherServer`)
+  Internal Supervisor for postgres notification watchers (`EctoWatch.WatcherServer`)
+
+  Used internally, but you'll see it in your application supervision tree.
   """
 
   alias EctoWatch.WatcherServer

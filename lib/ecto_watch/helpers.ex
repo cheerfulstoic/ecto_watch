@@ -1,7 +1,5 @@
 defmodule EctoWatch.Helpers do
-  @moduledoc """
-  General helpers useful throughout the `ecto_watch` library
-  """
+  @moduledoc false
 
   def label(schema_mod_or_label) do
     if ecto_schema_mod?(schema_mod_or_label) do
