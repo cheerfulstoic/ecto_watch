@@ -6,7 +6,7 @@ defmodule EctoWatch.MixProject do
   def project do
     [
       app: :ecto_watch,
-      version: "0.9.2",
+      version: "0.9.3",
       elixir: "~> 1.10",
       description:
         "EctoWatch allows you to easily get Phoenix.PubSub notifications directly from postgresql.",
@@ -58,9 +58,6 @@ defmodule EctoWatch.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: extras(),
       groups_for_extras: groups_for_extras()
-      # groups_for_docs: [
-      #   group_for_function("Test")
-      # ]
     ]
   end
 
@@ -76,8 +73,6 @@ defmodule EctoWatch.MixProject do
       "CHANGELOG.md"
     ]
   end
-
-  defp group_for_function(group), do: {String.to_atom(group), &(&1[:group] == group)}
 
   defp groups_for_extras do
     [

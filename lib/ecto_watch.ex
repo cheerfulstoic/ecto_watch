@@ -67,6 +67,8 @@ defmodule EctoWatch do
     end
   end
 
+  @type watcher_identifier() :: {atom(), atom()} | atom()
+
   @doc """
   Subscribe to notifications from watchers.
 
@@ -86,15 +88,15 @@ defmodule EctoWatch do
 
       iex> EctoWatch.subscribe({Comment, :updated}, {:post_id, post_id})
   """
-  @spec subscribe(identifier(), term()) :: :ok | {:error, term()}
-  def subscribe(identifier, id \\ nil) do
-    if is_atom(identifier) && id in ~w[inserted updated deleted]a do
-      if Helpers.ecto_schema_mod?(identifier) do
+  @spec subscribe(watcher_identifier(), term()) :: :ok | {:error, term()}
+  def subscribe(watcher_identifier, id \\ nil) do
+    if is_atom(watcher_identifier) && id in ~w[inserted updated deleted]a do
+      if Helpers.ecto_schema_mod?(watcher_identifier) do
         raise ArgumentError,
               """
               This way of subscribing was removed in version 0.8.0. Instead call:
 
-              subscribe({#{inspect(identifier)}, #{inspect(id)}})
+              subscribe({#{inspect(watcher_identifier)}, #{inspect(id)}})
 
               Before:
 
@@ -119,7 +121,7 @@ defmodule EctoWatch do
               """
               This way of subscribing was removed in version 0.8.0. Instead call:
 
-              subscribe(#{inspect(identifier)})
+              subscribe(#{inspect(watcher_identifier)})
 
               Before:
 
@@ -144,9 +146,9 @@ defmodule EctoWatch do
 
     validate_ecto_watch_running!()
 
-    with :ok <- validate_identifier(identifier),
+    with :ok <- validate_identifier(watcher_identifier),
          {:ok, {pub_sub_mod, channel_name}} <-
-           WatcherServer.pub_sub_subscription_details(identifier, id) do
+           WatcherServer.pub_sub_subscription_details(watcher_identifier, id) do
       Phoenix.PubSub.subscribe(pub_sub_mod, channel_name)
     else
       {:error, error} ->
