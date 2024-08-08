@@ -192,6 +192,8 @@ defmodule EctoWatch do
       {:ok, validated_opts} ->
         options = EctoWatch.Options.new(validated_opts)
 
+        validate_watcher_uniqueness(options.watchers)
+
         Supervisor.start_link(__MODULE__, options, name: __MODULE__)
 
       {:error, errors} ->
@@ -215,5 +217,47 @@ defmodule EctoWatch do
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
+  end
+
+  defp validate_watcher_uniqueness(watcher_options) do
+    {without_labels, with_labels} = Enum.split_with(watcher_options, &(&1.label == nil))
+
+    duplicate_labels =
+      with_labels
+      |> Enum.map(& &1.label)
+      |> duplicate_values()
+
+    duplicate_schema_and_update_types =
+      without_labels
+      |> Enum.map(&{&1.schema_definition.label, &1.update_type})
+      |> duplicate_values()
+
+    error_messages =
+      [
+        if length(duplicate_labels) > 0 do
+          """
+          The following labels are duplicated across watchers: #{Enum.join(duplicate_labels, ", ")}
+          """
+        end,
+        if length(duplicate_schema_and_update_types) > 0 do
+          """
+          The following schema and update type combinations are duplicated across watchers:
+
+            #{Enum.map_join(duplicate_schema_and_update_types, "\n\n  ", &inspect/1)}
+          """
+        end
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    if length(error_messages) > 0 do
+      raise ArgumentError, Enum.join(error_messages, "\n")
+    end
+  end
+
+  defp duplicate_values(values) do
+    values
+    |> Enum.group_by(&Function.identity/1)
+    |> Enum.filter(fn {_, values} -> length(values) >= 2 end)
+    |> Enum.map(fn {_, [value | _]} -> value end)
   end
 end

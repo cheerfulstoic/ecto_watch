@@ -339,6 +339,34 @@ defmodule EctoWatchTest do
                        ]
                      )
                    end
+
+      # Watchers which can't be disambiguated
+
+      assert_raise ArgumentError,
+                   ~r/The following labels are duplicated across watchers: thing_custom_event/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :inserted, label: :thing_custom_event},
+                         {Thing, :updated, label: :thing_custom_event}
+                       ]
+                     )
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/The following schema and update type combinations are duplicated across watchers:\n\n  \{EctoWatchTest.Thing, :inserted\}/,
+                   fn ->
+                     EctoWatch.start_link(
+                       repo: TestRepo,
+                       pub_sub: TestPubSub,
+                       watchers: [
+                         {Thing, :inserted, extra_columns: [:the_string]},
+                         {Thing, :inserted, extra_columns: [:the_integer]}
+                       ]
+                     )
+                   end
     end
 
     test "trigger_columns option only allowed for `updated`" do
