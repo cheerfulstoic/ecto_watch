@@ -15,6 +15,8 @@ You can also setup the database to trigger only on specific column changes on `:
   EctoWatch.subscribe(:user_contact_info_updated)
   # or...
   EctoWatch.subscribe(:user_contact_info_updated, package.id)
+  # or...
+  EctoWatch.subscribe(:user_contact_info_updated, {:role_id, role_id})
 
   # handling messages
   def handle_info({:user_contact_info_updated, %{id: id}}, socket) do
@@ -42,6 +44,8 @@ You can also use labels in general without tracking specific columns:
   EctoWatch.subscribe(:user_update)
   # or...
   EctoWatch.subscribe(:user_update, package.id)
+  # or...
+  EctoWatch.subscribe(:user_update, {:role_id, role_id})
 
   # handling messages
   def handle_info({:user_update, %{id: id}}, socket) do

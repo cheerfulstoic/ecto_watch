@@ -27,5 +27,7 @@ If you would like to get more than just the `id` from the record, you can use th
   # handling messages
   def handle_info({{Comment, :deleted}, %{id: id, post_id: post_id}}, socket) do
     Posts.refresh_cache(post_id)
+
+    # ...
 ```
 
