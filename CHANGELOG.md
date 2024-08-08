@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.9.5] - 2023-08-08
+
+### Added
+
+- Add validation errors for when watchers are created which can't be disambiguated
+
 ## [0.9.4] - 2023-08-08
 
 ### Fixed
