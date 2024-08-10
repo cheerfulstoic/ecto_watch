@@ -1,3 +1,5 @@
+Getting Started
+
 To use EctoWatch, you need to add it to your supervision tree and specify watchers for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
 
 ```elixir
