@@ -58,14 +58,14 @@ defmodule EctoWatch.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: extras(),
       groups_for_extras: groups_for_extras(),
-      main: "guides/introduction/Getting Started.md",
+      main: "Getting Started",
       api_reference: false
     ]
   end
 
   def extras() do
     [
-      "Getting Started",
+      "guides/introduction/Getting Started.md",
       "guides/introduction/Tracking columns and using labels.md",
       "guides/introduction/Getting additional values.md",
       "guides/introduction/Watching without a schema.md",
