@@ -150,17 +150,23 @@ defmodule EctoWatch.Options.WatcherOptions do
         type:
           {:custom, __MODULE__, :validate_trigger_columns,
            [opts[:label], schema_definition, update_type]},
-        required: false
+        required: false,
+        default: []
       ],
       extra_columns: [
         type: {:custom, __MODULE__, :validate_columns, [schema_definition]},
-        required: false
+        required: false,
+        default: []
       ]
     ]
 
     with {:error, error} <- NimbleOptions.validate(opts, schema) do
       {:error, Exception.message(error)}
     end
+  end
+
+  def validate_trigger_columns([], _, _, _) do
+    {:ok, []}
   end
 
   def validate_trigger_columns(columns, label, schema_definition, update_type) do
@@ -176,9 +182,6 @@ defmodule EctoWatch.Options.WatcherOptions do
         validate_columns(columns, schema_definition)
     end
   end
-
-  def validate_columns([], _schema_mod),
-    do: {:error, "List must not be empty"}
 
   def validate_columns(columns, schema_definition) do
     Helpers.validate_list(columns, fn

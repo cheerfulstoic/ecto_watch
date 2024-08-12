@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.9.11] - 2023-08-12
+
+### Fixed
+
+- Allow empty `trigger_columns` and `extra_columns` options (#24 / thanks @barrelltech)
+
 ## [0.9.10] - 2023-08-12
 
 ### Fixed

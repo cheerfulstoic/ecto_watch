@@ -384,32 +384,6 @@ defmodule EctoWatchTest do
                    end
     end
 
-    test "columns must be non-empty" do
-      assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :trigger_columns option: List must not be empty/,
-                   fn ->
-                     EctoWatch.start_link(
-                       repo: TestRepo,
-                       pub_sub: TestPubSub,
-                       watchers: [
-                         {Thing, :updated, label: :thing_custom_event, trigger_columns: []}
-                       ]
-                     )
-                   end
-
-      assert_raise ArgumentError,
-                   ~r/invalid value for :watchers option: invalid value for :extra_columns option: List must not be empty/,
-                   fn ->
-                     EctoWatch.start_link(
-                       repo: TestRepo,
-                       pub_sub: TestPubSub,
-                       watchers: [
-                         {Thing, :updated, label: :thing_custom_event, extra_columns: []}
-                       ]
-                     )
-                   end
-    end
-
     test "columns must be in schema" do
       assert_raise ArgumentError,
                    ~r/invalid value for :watchers option: invalid value for :trigger_columns option: Invalid column: :not_a_column \(expected to be in \[:id, :the_string, :the_integer, :the_float, :parent_thing_id, :other_parent_thing_id, :inserted_at, :updated_at\]\)/,
@@ -761,6 +735,42 @@ defmodule EctoWatchTest do
       assert_receive {:other_inserted, %{weird_id: 1234}}
     end
 
+    test "empty extra_columns list" do
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :inserted, extra_columns: []},
+         {Other, :inserted, extra_columns: []},
+         # schemaless definition
+         {%{table_name: :things}, :inserted, label: :things_inserted, extra_columns: []},
+         {%{table_name: :other, schema_prefix: "0xabcd", primary_key: :weird_id}, :inserted,
+          label: :other_inserted, extra_columns: []}
+       ]})
+
+      EctoWatch.subscribe({Thing, :inserted})
+      EctoWatch.subscribe({Other, :inserted})
+      EctoWatch.subscribe(:things_inserted)
+      EctoWatch.subscribe(:other_inserted)
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO \"0xabcd\".other (weird_id, the_string, inserted_at, updated_at) VALUES (1234, 'the value', NOW(), NOW())",
+        []
+      )
+
+      assert_receive {{Thing, :inserted}, %{id: 3}}
+      assert_receive {:things_inserted, %{id: 3}}
+      assert_receive {{Other, :inserted}, %{weird_id: 1234}}
+      assert_receive {:other_inserted, %{weird_id: 1234}}
+    end
+
     test "inserts for an association column", %{already_existing_id2: already_existing_id2} do
       start_supervised!(
         {EctoWatch,
@@ -872,6 +882,32 @@ defmodule EctoWatchTest do
          {Thing, :updated},
          # schemaless definition
          {%{table_name: :things}, :updated, label: :things_updated}
+       ]})
+
+      EctoWatch.subscribe({Thing, :updated})
+      EctoWatch.subscribe(:things_updated)
+
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
+
+      assert_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
+      assert_receive {:things_updated, %{id: ^already_existing_id1}}
+
+      assert_receive {{Thing, :updated}, %{id: ^already_existing_id2}}
+      assert_receive {:things_updated, %{id: ^already_existing_id2}}
+    end
+
+    test "empty column lists", %{
+      already_existing_id1: already_existing_id1,
+      already_existing_id2: already_existing_id2
+    } do
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :updated, trigger_columns: [], extra_columns: []},
+         # schemaless definition
+         {%{table_name: :things}, :updated,
+          label: :things_updated, trigger_columns: [], extra_columns: []}
        ]})
 
       EctoWatch.subscribe({Thing, :updated})
@@ -1083,6 +1119,31 @@ defmodule EctoWatchTest do
          {Thing, :deleted},
          # schemaless definition
          {%{table_name: :things}, :deleted, label: :things_deleted}
+       ]})
+
+      EctoWatch.subscribe({Thing, :deleted})
+      EctoWatch.subscribe(:things_deleted)
+
+      Ecto.Adapters.SQL.query!(TestRepo, "DELETE FROM things", [])
+
+      assert_receive {{Thing, :deleted}, %{id: ^already_existing_id1}}
+      assert_receive {:things_deleted, %{id: ^already_existing_id1}}
+
+      assert_receive {{Thing, :deleted}, %{id: ^already_existing_id2}}
+      assert_receive {:things_deleted, %{id: ^already_existing_id2}}
+    end
+
+    test "empty extra_columns", %{
+      already_existing_id1: already_existing_id1,
+      already_existing_id2: already_existing_id2
+    } do
+      start_supervised!({EctoWatch,
+       repo: TestRepo,
+       pub_sub: TestPubSub,
+       watchers: [
+         {Thing, :deleted, extra_columns: []},
+         # schemaless definition
+         {%{table_name: :things}, :deleted, label: :things_deleted, extra_columns: []}
        ]})
 
       EctoWatch.subscribe({Thing, :deleted})
