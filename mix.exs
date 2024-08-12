@@ -6,7 +6,7 @@ defmodule EctoWatch.MixProject do
   def project do
     [
       app: :ecto_watch,
-      version: "0.9.9",
+      version: "0.9.10",
       elixir: "~> 1.10",
       description:
         "EctoWatch allows you to easily get Phoenix.PubSub notifications directly from postgresql.",
@@ -56,7 +56,8 @@ defmodule EctoWatch.MixProject do
       source_url: @source_url,
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: extras(),
-      groups_for_extras: groups_for_extras() #,
+      # ,
+      groups_for_extras: groups_for_extras()
       # main: "Getting Started",
       # api_reference: false
     ]

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.9.10] - 2023-08-12
+
+### Fixed
+
+- Non-EctoWatch function were being reported as needing to be cleaned up (#23 / thanks @barrelltech / @adampash)
+- Function / trigger cleanup was still looking for `ECTO_WATCH_CLEANUP_TRIGGERS` environment variable when `ECTO_WATCH_CLEANUP` was the documented option (#23 / thanks @barrelltech / @adampash)
+
+## [0.9.9] - 2023-08-10
+
+### Added
+
+- Documentation release
+
+## [0.9.8] - 2023-08-10
+
+### Added
+
+- Documentation release
+
+## [0.9.7] - 2023-08-10
+
+### Added
+
+- Documentation release
+
+## [0.9.6] - 2023-08-10
+
+### Added
+
+- Documentation release
+
 ## [0.9.5] - 2023-08-08
 
 ### Added
