@@ -31,7 +31,7 @@ defmodule EctoWatch.WatcherTriggerValidator do
   def run(_) do
     triggers_by_repo_mod()
     |> Enum.each(fn {repo_mod, {extra_found_triggers, extra_found_functions}} ->
-      if System.get_env("ECTO_WATCH_CLEANUP_TRIGGERS") == "cleanup" do
+      if System.get_env("ECTO_WATCH_CLEANUP") == "cleanup" do
         # One solution would be to remove all triggers and then allow them to be re-created,
         # but that could lead to missed messages.  Better to remove unused triggers.
         Enum.each(extra_found_triggers, &drop_trigger(repo_mod, &1))

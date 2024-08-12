@@ -600,7 +600,7 @@ defmodule EctoWatchTest do
   describe "trigger cleanup" do
     import ExUnit.CaptureLog
 
-    test "warns about extra triggers" do
+    setup do
       Ecto.Adapters.SQL.query!(
         TestRepo,
         """
@@ -642,11 +642,15 @@ defmodule EctoWatchTest do
         """
         CREATE TRIGGER non_ecto_watch_trigger
           AFTER UPDATE ON \"public\".\"things\" FOR EACH ROW
-          EXECUTE PROCEDURE \"public\".ew_some_weird_func();
+          EXECUTE PROCEDURE \"public\".non_ecto_watch_func();
         """,
         []
       )
 
+      :ok
+    end
+
+    test "warns about extra triggers" do
       log =
         capture_log(fn ->
           start_supervised!(
@@ -669,6 +673,54 @@ defmodule EctoWatchTest do
 
       refute log =~ ~r/non_ecto_watch_trigger/
       refute log =~ ~r/non_ecto_watch_func/
+    end
+
+    test "actual cleanup" do
+      System.put_env("ECTO_WATCH_CLEANUP", "cleanup")
+
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :inserted, label: :trigger_test}
+         ]}
+      )
+
+      Process.sleep(2_000)
+
+      System.delete_env("ECTO_WATCH_CLEANUP")
+
+      %Postgrex.Result{rows: rows} =
+        Ecto.Adapters.SQL.query!(
+          TestRepo,
+          """
+          SELECT trigger_name
+          FROM information_schema.triggers
+          """,
+          []
+        )
+
+      values = Enum.map(rows, &List.first/1)
+
+      assert "ew_some_weird_trigger" not in values
+      assert "non_ecto_watch_trigger" in values
+
+      %Postgrex.Result{rows: rows} =
+        Ecto.Adapters.SQL.query!(
+          TestRepo,
+          """
+          SELECT p.proname AS name
+          FROM pg_proc p LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+          WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+          """,
+          []
+        )
+
+      values = Enum.map(rows, &List.first/1)
+
+      assert "ew_some_weird_func" not in values
+      assert "non_ecto_watch_func" in values
     end
   end
 
