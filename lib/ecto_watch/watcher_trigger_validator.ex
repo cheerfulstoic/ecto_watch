@@ -6,13 +6,13 @@ defmodule EctoWatch.WatcherTriggerValidator do
   Used internally, but you'll see it in your application supervision tree.
   """
 
-  alias EctoWatch.WatcherServer
+  alias EctoWatch.WatcherSupervisor
 
   use Task, restart: :transient
 
   require Logger
 
-  def start_link(nil) do
+  def start_link(_) do
     Task.start_link(__MODULE__, :run, [nil])
   end
 
@@ -28,7 +28,7 @@ defmodule EctoWatch.WatcherTriggerValidator do
     defstruct ~w[name schema]a
   end
 
-  def run(nil) do
+  def run(_) do
     triggers_by_repo_mod()
     |> Enum.each(fn {repo_mod, {extra_found_triggers, extra_found_functions}} ->
       if System.get_env("ECTO_WATCH_CLEANUP_TRIGGERS") == "cleanup" do
@@ -63,7 +63,7 @@ defmodule EctoWatch.WatcherTriggerValidator do
   end
 
   defp triggers_by_repo_mod do
-    case WatcherServer.watcher_details() do
+    case WatcherSupervisor.watcher_details() do
       {:ok, watcher_details} ->
         watcher_details
 
@@ -150,7 +150,7 @@ defmodule EctoWatch.WatcherTriggerValidator do
       """
       SELECT n.nspname AS schema, p.proname AS name
       FROM pg_proc p LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-      WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+      WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') AND p.proname LIKE 'ew_%'
       ORDER BY schema, name;
       """
     )

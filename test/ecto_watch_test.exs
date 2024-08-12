@@ -597,6 +597,81 @@ defmodule EctoWatchTest do
     end
   end
 
+  describe "trigger cleanup" do
+    import ExUnit.CaptureLog
+
+    test "warns about extra triggers" do
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
+        CREATE OR REPLACE FUNCTION \"public\".ew_some_weird_func()
+          RETURNS trigger AS $trigger$
+          BEGIN
+            RETURN NEW;
+          END;
+          $trigger$ LANGUAGE plpgsql;
+        """,
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
+        CREATE TRIGGER ew_some_weird_trigger
+          AFTER UPDATE ON \"public\".\"things\" FOR EACH ROW
+          EXECUTE PROCEDURE \"public\".ew_some_weird_func();
+        """,
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
+        CREATE OR REPLACE FUNCTION \"public\".non_ecto_watch_func()
+          RETURNS trigger AS $trigger$
+          BEGIN
+            RETURN NEW;
+          END;
+          $trigger$ LANGUAGE plpgsql;
+        """,
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
+        CREATE TRIGGER non_ecto_watch_trigger
+          AFTER UPDATE ON \"public\".\"things\" FOR EACH ROW
+          EXECUTE PROCEDURE \"public\".ew_some_weird_func();
+        """,
+        []
+      )
+
+      log =
+        capture_log(fn ->
+          start_supervised!(
+            {EctoWatch,
+             repo: TestRepo,
+             pub_sub: TestPubSub,
+             watchers: [
+               {Thing, :inserted, label: :trigger_test}
+             ]}
+          )
+
+          Process.sleep(2_000)
+        end)
+
+      assert log =~
+               ~r/Found the following extra EctoWatch triggers:\n\n"ew_some_weird_trigger" in the table "public"\."things"\n\n\.\.\.but they were not specified in the watcher options/
+
+      assert log =~
+               ~r/Found the following extra EctoWatch functions:\n\n"ew_some_weird_func" in the schema "public"/
+
+      refute log =~ ~r/non_ecto_watch_trigger/
+      refute log =~ ~r/non_ecto_watch_func/
+    end
+  end
+
   describe "inserts" do
     test "get notification about inserts" do
       start_supervised!({EctoWatch,

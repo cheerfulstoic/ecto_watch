@@ -26,4 +26,18 @@ defmodule EctoWatch.WatcherSupervisor do
 
     Supervisor.init(children, strategy: :one_for_one)
   end
+
+  def watcher_details do
+    case Process.whereis(__MODULE__) do
+      nil ->
+        {:error, "WatcherSupervisor is not running!"}
+
+      pid ->
+        {:ok,
+         Supervisor.which_children(pid)
+         |> Enum.map(fn {_, pid, :worker, [EctoWatch.WatcherServer]} ->
+           WatcherServer.details(pid)
+         end)}
+    end
+  end
 end

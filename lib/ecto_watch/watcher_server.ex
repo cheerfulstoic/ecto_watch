@@ -7,7 +7,6 @@ defmodule EctoWatch.WatcherServer do
 
   alias EctoWatch.Helpers
   alias EctoWatch.Options.WatcherOptions
-  alias EctoWatch.WatcherSupervisor
 
   use GenServer
 
@@ -36,20 +35,6 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
-  def watcher_details do
-    case Process.whereis(WatcherSupervisor) do
-      nil ->
-        {:error, "WatcherSupervisor is not running!"}
-
-      pid ->
-        {:ok,
-         Supervisor.which_children(pid)
-         |> Enum.map(fn {_, pid, :worker, [EctoWatch.WatcherServer]} ->
-           details(pid)
-         end)}
-    end
-  end
-
   def start_link({repo_mod, pub_sub_mod, watcher_options}) do
     GenServer.start_link(
       __MODULE__,
@@ -58,6 +43,7 @@ defmodule EctoWatch.WatcherServer do
     )
   end
 
+  @impl true
   def init({repo_mod, pub_sub_mod, options}) do
     unique_label = "#{unique_label(options)}"
 
@@ -139,6 +125,7 @@ defmodule EctoWatch.WatcherServer do
      }}
   end
 
+  @impl true
   def handle_call(
         {:pub_sub_subscription_details, identifier, identifier_value},
         _from,
@@ -171,6 +158,7 @@ defmodule EctoWatch.WatcherServer do
     {:reply, result, state}
   end
 
+  @impl true
   def handle_call(:details, _from, state) do
     {:reply, watcher_details(state), state}
   end
@@ -192,6 +180,7 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
+  @impl true
   def handle_info({:notification, _pid, _ref, channel_name, payload}, state) do
     details = watcher_details(state)
 
