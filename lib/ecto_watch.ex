@@ -160,10 +160,18 @@ defmodule EctoWatch do
   Returns details about a watcher for reflection purposes
 
   For example if you need to know what the function/triggers are in the database.
+
+  Examples:
+
+      iex> EctoWatch.subscribe({Comment, :updated})
+
+    Or for a label:
+
+      iex> EctoWatch.subscribe(:comment_updated_custom)
   """
   @spec details(watcher_identifier()) :: %{
           repo_mod: module(),
-          schema_definition: %EctoWatch.Options.WatcherOptions.SchemaDefinition{
+          schema_definition: %{
             schema_prefix: binary(),
             table_name: binary(),
             primary_key: binary(),
