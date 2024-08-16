@@ -156,6 +156,29 @@ defmodule EctoWatch do
     end
   end
 
+  @doc """
+  Returns details about a watcher for reflection purposes
+
+  For example if you need to know what the function/triggers are in the database.
+  """
+  @spec details(watcher_identifier()) :: %{
+          repo_mod: module(),
+          schema_definition: %EctoWatch.Options.WatcherOptions.SchemaDefinition{
+            schema_prefix: binary(),
+            table_name: binary(),
+            primary_key: binary(),
+            columns: [atom()],
+            association_columns: [atom()],
+            label: term()
+          },
+          function_name: binary(),
+          trigger_name: binary(),
+          notify_channel: binary()
+        }
+  def details(watcher_identifier) do
+    WatcherServer.details(watcher_identifier)
+  end
+
   defp validate_identifier({schema_mod, update_type})
        when is_atom(schema_mod) and is_atom(update_type) do
     cond do

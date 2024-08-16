@@ -1267,4 +1267,70 @@ defmodule EctoWatchTest do
       refute_receive {{Thing, :deleted}, %{id: ^already_existing_id2}}
     end
   end
+
+  describe "details" do
+    test "for standard and labeled" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :updated, label: :thing_custom_event},
+           {Thing, :deleted}
+         ]}
+      )
+
+      details = EctoWatch.details({Thing, :deleted})
+
+      assert details.repo_mod == TestRepo
+
+      assert details.schema_definition == %EctoWatch.Options.WatcherOptions.SchemaDefinition{
+               schema_prefix: "public",
+               table_name: "things",
+               primary_key: :id,
+               columns: [
+                 :id,
+                 :the_string,
+                 :the_integer,
+                 :the_float,
+                 :parent_thing_id,
+                 :other_parent_thing_id,
+                 :inserted_at,
+                 :updated_at
+               ],
+               association_columns: [:parent_thing_id, :other_parent_thing_id],
+               label: EctoWatchTest.Thing
+             }
+
+      assert details.function_name == "ew_deleted_for_ectowatchtest_thing_func"
+      assert details.trigger_name == "ew_deleted_for_ectowatchtest_thing_trigger"
+      assert details.notify_channel == "ew_deleted_for_ectowatchtest_thing"
+
+      details = EctoWatch.details(:thing_custom_event)
+
+      assert details.repo_mod == TestRepo
+
+      assert details.schema_definition == %EctoWatch.Options.WatcherOptions.SchemaDefinition{
+               schema_prefix: "public",
+               table_name: "things",
+               primary_key: :id,
+               columns: [
+                 :id,
+                 :the_string,
+                 :the_integer,
+                 :the_float,
+                 :parent_thing_id,
+                 :other_parent_thing_id,
+                 :inserted_at,
+                 :updated_at
+               ],
+               association_columns: [:parent_thing_id, :other_parent_thing_id],
+               label: EctoWatchTest.Thing
+             }
+
+      assert details.function_name == "ew_for_thing_custom_event_func"
+      assert details.trigger_name == "ew_for_thing_custom_event_trigger"
+      assert details.notify_channel == "ew_for_thing_custom_event"
+    end
+  end
 end
