@@ -3,6 +3,8 @@ defmodule EctoWatchTest do
 
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   # TODO: Long module names (testing for limits of postgres labels)
   # TODO: More tests for label option
   # TODO: Pass non-lists to `extra_columns`
@@ -572,8 +574,6 @@ defmodule EctoWatchTest do
   end
 
   describe "trigger cleanup" do
-    import ExUnit.CaptureLog
-
     setup do
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -1331,6 +1331,164 @@ defmodule EctoWatchTest do
       assert details.function_name == "ew_for_thing_custom_event_func"
       assert details.trigger_name == "ew_for_thing_custom_event_trigger"
       assert details.notify_channel == "ew_for_thing_custom_event"
+    end
+  end
+
+  describe "debug? option" do
+    test "option on specific watcher" do
+      log =
+        capture_log([level: :debug], fn ->
+          start_supervised!(
+            {EctoWatch,
+             repo: TestRepo,
+             pub_sub: TestPubSub,
+             watchers: [
+               {Thing, :updated,
+                extra_columns: [:the_string], label: :custom_event1, debug?: true},
+               {Thing, :updated, extra_columns: [:the_integer], label: :custom_event2}
+             ]}
+          )
+        end)
+
+      assert log =~ ~r/EctoWatch \| :custom_event1 \| #PID<\d+\.\d+\.\d+> \| Starting server/
+      refute log =~ ~r/EctoWatch \| custom_event2/
+
+      log =
+        capture_log([level: :debug], fn ->
+          Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
+
+          Process.sleep(1_000)
+        end)
+
+      assert log =~
+               ~r/Received Postgrex notification on channel `ew_for_custom_event1`: {"type": "updated", "values": {"id": 1, "the_string": "the new value"}}/
+
+      refute log =~ ~r/Received Postgrex notification on channel `ew_for_custom_event2`/
+
+      assert log =~
+               ~r/Broadcasting to Phoenix PubSub topic `ew_for_custom_event1`: {:custom_event1, %{id: 1, the_string: "the new value"}}/
+
+      refute log =~ ~r/Broadcasting to Phoenix PubSub topic `ew_for_custom_event2`/
+
+      log =
+        capture_log([level: :info], fn ->
+          Ecto.Adapters.SQL.query!(
+            TestRepo,
+            "UPDATE things SET the_string = 'the new new value'",
+            []
+          )
+
+          Process.sleep(1_000)
+        end)
+
+      refute log =~ ~r/Received Postgrex notification on channel/
+      refute log =~ ~r/Broadcasting to Phoenix PubSub topic/
+
+      log =
+        capture_log([level: :debug], fn ->
+          EctoWatch.subscribe(:custom_event1)
+        end)
+
+      assert log =~
+               ~r/EctoWatch \| :custom_event1 \| #PID<\d+\.\d+\.\d+> \| Subscribing to watcher/
+
+      refute log =~ ~r/EctoWatch \| :custom_event2/
+
+      log =
+        capture_log([level: :debug], fn ->
+          EctoWatch.subscribe(:custom_event2)
+        end)
+
+      refute log =~ ~r/EctoWatch \| :custom_event1/
+      refute log =~ ~r/EctoWatch \| :custom_event2/
+
+      log =
+        capture_log([level: :info], fn ->
+          EctoWatch.subscribe(:custom_event1)
+          EctoWatch.subscribe(:custom_event2)
+        end)
+
+      refute log =~ ~r/EctoWatch \| :custom_event/
+    end
+
+    test "global option" do
+      log =
+        capture_log([level: :debug], fn ->
+          start_supervised!(
+            {EctoWatch,
+             repo: TestRepo,
+             pub_sub: TestPubSub,
+             debug?: true,
+             watchers: [
+               {Thing, :updated, extra_columns: [:the_string], label: :custom_event1},
+               {Thing, :updated, extra_columns: [:the_integer], label: :custom_event2}
+             ]}
+          )
+        end)
+
+      assert log =~ ~r/EctoWatch \| :custom_event1 \| #PID<\d+\.\d+\.\d+> \| Starting server/
+      assert log =~ ~r/EctoWatch \| :custom_event2 \| #PID<\d+\.\d+\.\d+> \| Starting server/
+
+      log =
+        capture_log([level: :debug], fn ->
+          Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
+
+          Process.sleep(1_000)
+        end)
+
+      assert log =~
+               ~r/Received Postgrex notification on channel `ew_for_custom_event1`: {"type": "updated", "values": {"id": 1, "the_string": "the new value"}}/
+
+      assert log =~
+               ~r/Received Postgrex notification on channel `ew_for_custom_event2`: {"type": "updated", "values": {"id": 1, "the_integer": 4455}}/
+
+      assert log =~
+               ~r/Broadcasting to Phoenix PubSub topic `ew_for_custom_event1`: {:custom_event1, %{id: 1, the_string: "the new value"}}/
+
+      assert log =~
+               ~r/Broadcasting to Phoenix PubSub topic `ew_for_custom_event2`: {:custom_event2, %{id: 1, the_integer: 4455}}/
+
+      log =
+        capture_log([level: :info], fn ->
+          Ecto.Adapters.SQL.query!(
+            TestRepo,
+            "UPDATE things SET the_string = 'the new new value'",
+            []
+          )
+
+          Process.sleep(1_000)
+        end)
+
+      refute log =~ ~r/Received Postgrex notification on channel/
+      refute log =~ ~r/Broadcasting to Phoenix PubSub topic/
+
+      log =
+        capture_log([level: :debug], fn ->
+          EctoWatch.subscribe(:custom_event1)
+        end)
+
+      assert log =~
+               ~r/EctoWatch \| :custom_event1 \| #PID<\d+\.\d+\.\d+> \| Subscribing to watcher/
+
+      refute log =~ ~r/EctoWatch \| :custom_event2/
+
+      log =
+        capture_log([level: :debug], fn ->
+          EctoWatch.subscribe(:custom_event2)
+        end)
+
+      refute log =~ ~r/EctoWatch \| :custom_event1/
+
+      assert log =~
+               ~r/EctoWatch \| :custom_event2 \| #PID<\d+\.\d+\.\d+> \| Subscribing to watcher/
+
+      log =
+        capture_log([level: :info], fn ->
+          EctoWatch.subscribe(:custom_event1)
+          EctoWatch.subscribe(:custom_event2)
+        end)
+
+      refute log =~ ~r/EctoWatch \| :custom_event/
     end
   end
 end
