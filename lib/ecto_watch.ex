@@ -147,8 +147,10 @@ defmodule EctoWatch do
     validate_ecto_watch_running!()
 
     with :ok <- validate_identifier(watcher_identifier),
-         {:ok, {pub_sub_mod, channel_name}} <-
+         {:ok, {pub_sub_mod, channel_name, debug?}} <-
            WatcherServer.pub_sub_subscription_details(watcher_identifier, id) do
+      if(debug?, do: debug_log(watcher_identifier, "Subscribing to watcher"))
+
       Phoenix.PubSub.subscribe(pub_sub_mod, channel_name)
     else
       {:error, error} ->
@@ -290,5 +292,9 @@ defmodule EctoWatch do
     |> Enum.group_by(&Function.identity/1)
     |> Enum.filter(fn {_, values} -> length(values) >= 2 end)
     |> Enum.map(fn {_, [value | _]} -> value end)
+  end
+
+  defp debug_log(watcher_identifier, message) do
+    EctoWatch.Helpers.debug_log(watcher_identifier, message)
   end
 end

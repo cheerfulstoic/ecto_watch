@@ -3,7 +3,7 @@ defmodule EctoWatch.Options.WatcherOptions do
 
   alias EctoWatch.Helpers
 
-  defstruct [:schema_definition, :update_type, :label, :trigger_columns, :extra_columns]
+  defstruct [:schema_definition, :update_type, :label, :trigger_columns, :extra_columns, :debug?]
 
   def validate_list(list) do
     Helpers.validate_list(list, &validate/1)
@@ -157,6 +157,11 @@ defmodule EctoWatch.Options.WatcherOptions do
         type: {:custom, __MODULE__, :validate_columns, [schema_definition]},
         required: false,
         default: []
+      ],
+      debug?: [
+        type: :boolean,
+        required: false,
+        default: false
       ]
     ]
 
@@ -198,11 +203,11 @@ defmodule EctoWatch.Options.WatcherOptions do
     end)
   end
 
-  def new({schema_definition, update_type}) do
-    new({schema_definition, update_type, []})
+  def new({schema_definition, update_type}, debug?) do
+    new({schema_definition, update_type, []}, debug?)
   end
 
-  def new({schema_definition, update_type, opts}) do
+  def new({schema_definition, update_type, opts}, debug?) do
     schema_definition = SchemaDefinition.new(schema_definition)
 
     %__MODULE__{
@@ -210,7 +215,8 @@ defmodule EctoWatch.Options.WatcherOptions do
       update_type: update_type,
       label: opts[:label],
       trigger_columns: opts[:trigger_columns] || [],
-      extra_columns: opts[:extra_columns] || []
+      extra_columns: opts[:extra_columns] || [],
+      debug?: debug? || opts[:debug?]
     }
   end
 end

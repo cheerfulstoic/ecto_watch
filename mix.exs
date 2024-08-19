@@ -69,6 +69,7 @@ defmodule EctoWatch.MixProject do
       "guides/introduction/Tracking columns and using labels.md",
       "guides/introduction/Getting additional values.md",
       "guides/introduction/Watching without a schema.md",
+      "guides/introduction/Debugging.md",
       "guides/introduction/Notes.md",
       "guides/howtos/Upgrading Versions.md",
       "guides/other/Potental TODOs.md",

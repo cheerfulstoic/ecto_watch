@@ -1,6 +1,8 @@
 defmodule EctoWatch.Helpers do
   @moduledoc false
 
+  require Logger
+
   def label(schema_mod_or_label) do
     if ecto_schema_mod?(schema_mod_or_label) do
       module_to_label(schema_mod_or_label)
@@ -38,5 +40,9 @@ defmodule EctoWatch.Helpers do
 
   def validate_list(_, _) do
     {:error, "should be a list"}
+  end
+
+  def debug_log(watcher_identifier, message) do
+    Logger.debug("EctoWatch | #{inspect(watcher_identifier)} | #{inspect(self())} | #{message}")
   end
 end

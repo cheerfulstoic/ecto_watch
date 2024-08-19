@@ -45,6 +45,8 @@ defmodule EctoWatch.WatcherServer do
 
   @impl true
   def init({repo_mod, pub_sub_mod, options}) do
+    debug_log(options, "Starting server")
+
     unique_label = "#{unique_label(options)}"
 
     update_keyword =
@@ -152,7 +154,7 @@ defmodule EctoWatch.WatcherServer do
             "#{state.unique_label}"
           end
 
-        {:ok, {state.pub_sub_mod, channel_name}}
+        {:ok, {state.pub_sub_mod, channel_name, state.options.debug?}}
       end
 
     {:reply, result, state}
@@ -182,6 +184,11 @@ defmodule EctoWatch.WatcherServer do
 
   @impl true
   def handle_info({:notification, _pid, _ref, channel_name, payload}, state) do
+    debug_log(
+      state.options,
+      "Received Postgrex notification on channel `#{channel_name}`: #{payload}"
+    )
+
     details = watcher_details(state)
 
     if channel_name != details.notify_channel do
@@ -210,6 +217,11 @@ defmodule EctoWatch.WatcherServer do
             returned_values,
             state.identifier_columns
           ) do
+      debug_log(
+        state.options,
+        "Broadcasting to Phoenix PubSub topic `#{topic}`: #{inspect(message)}"
+      )
+
       Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
     end
 
@@ -244,11 +256,9 @@ defmodule EctoWatch.WatcherServer do
   # that can be used as the watcher process name, trigger name, trigger function name,
   # and Phoenix.PubSub channel name.
   defp unique_label(%WatcherOptions{} = options) do
-    if options.label do
-      unique_label(options.label)
-    else
-      unique_label({options.schema_definition.label, options.update_type})
-    end
+    options
+    |> identifier()
+    |> unique_label()
   end
 
   defp unique_label({schema_mod, update_type}) do
@@ -257,5 +267,19 @@ defmodule EctoWatch.WatcherServer do
 
   defp unique_label(label) do
     :"ew_for_#{Helpers.label(label)}"
+  end
+
+  defp identifier(%WatcherOptions{} = options) do
+    if options.label do
+      options.label
+    else
+      {options.schema_definition.label, options.update_type}
+    end
+  end
+
+  defp debug_log(%{debug?: debug_value} = options, message) do
+    if debug_value do
+      Helpers.debug_log(identifier(options), message)
+    end
   end
 end
