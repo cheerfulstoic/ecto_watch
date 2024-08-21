@@ -9,6 +9,38 @@ defmodule EctoWatch do
 
   use Supervisor
 
+  def start_link(opts) do
+    case EctoWatch.Options.validate(opts) do
+      {:ok, validated_opts} ->
+        options = EctoWatch.Options.new(validated_opts)
+
+        validate_watcher_uniqueness(options.watchers)
+
+        Supervisor.start_link(__MODULE__, options, name: __MODULE__)
+
+      {:error, errors} ->
+        raise ArgumentError, "Invalid options: #{Exception.message(errors)}"
+    end
+  end
+
+  def init(options) do
+    # TODO:
+    # Allow passing in options specific to Postgrex.Notifications.start_link/1
+    # https://hexdocs.pm/postgrex/Postgrex.Notifications.html#start_link/1
+
+    postgrex_notifications_options =
+      options.repo_mod.config()
+      |> Keyword.put(:name, :ecto_watch_postgrex_notifications)
+
+    children = [
+      {Postgrex.Notifications, postgrex_notifications_options},
+      {EctoWatch.WatcherSupervisor, options},
+      {WatcherTriggerValidator, nil}
+    ]
+
+    Supervisor.init(children, strategy: :rest_for_one)
+  end
+
   @since "0.8.0"
   @deprecated "subscribe/3 was removed in version 0.8.0. See the updated documentation"
   def subscribe(schema_mod_or_label, update_type, id) when is_atom(schema_mod_or_label) do
@@ -218,38 +250,6 @@ defmodule EctoWatch do
     if !Process.whereis(__MODULE__) do
       raise "EctoWatch is not running. Please start it by adding it to your supervision tree or using EctoWatch.start_link/1"
     end
-  end
-
-  def start_link(opts) do
-    case EctoWatch.Options.validate(opts) do
-      {:ok, validated_opts} ->
-        options = EctoWatch.Options.new(validated_opts)
-
-        validate_watcher_uniqueness(options.watchers)
-
-        Supervisor.start_link(__MODULE__, options, name: __MODULE__)
-
-      {:error, errors} ->
-        raise ArgumentError, "Invalid options: #{Exception.message(errors)}"
-    end
-  end
-
-  def init(options) do
-    # TODO:
-    # Allow passing in options specific to Postgrex.Notifications.start_link/1
-    # https://hexdocs.pm/postgrex/Postgrex.Notifications.html#start_link/1
-
-    postgrex_notifications_options =
-      options.repo_mod.config()
-      |> Keyword.put(:name, :ecto_watch_postgrex_notifications)
-
-    children = [
-      {Postgrex.Notifications, postgrex_notifications_options},
-      {EctoWatch.WatcherSupervisor, options},
-      {WatcherTriggerValidator, nil}
-    ]
-
-    Supervisor.init(children, strategy: :rest_for_one)
   end
 
   defp validate_watcher_uniqueness(watcher_options) do
