@@ -37,29 +37,40 @@ defmodule EctoWatch.WatcherTriggerValidator do
         Enum.each(extra_found_triggers, &drop_trigger(repo_mod, &1))
         Enum.each(extra_found_functions, &drop_function(repo_mod, &1))
       else
-        Logger.error("""
-        Found the following extra EctoWatch triggers:
-
-        #{Enum.map_join(extra_found_triggers, "\n", fn trigger_details -> "\"#{trigger_details.name}\" in the table \"#{trigger_details.table_schema}\".\"#{trigger_details.table_name}\"" end)}
-
-        ...but they were not specified in the watcher options.
-
-        To cleanup unspecified triggers and functions, run your app with the `ECTO_WATCH_CLEANUP`
-        environment variable set to the value `cleanup`
-        """)
-
-        Logger.error("""
-        Found the following extra EctoWatch functions:
-
-        #{Enum.map_join(extra_found_functions, "\n", fn function_details -> "\"#{function_details.name}\" in the schema \"#{function_details.schema}\"" end)}
-
-        To cleanup unspecified triggers and functions, run your app with the `ECTO_WATCH_CLEANUP`
-        environment variable set to the value `cleanup`
-        """)
+        if MapSet.size(extra_found_triggers) > 0 do
+          log_extra_triggers(extra_found_triggers)
+        end
+        if MapSet.size(extra_found_functions) > 0 do
+          log_extra_functions(extra_found_functions)
+        end
       end
     end)
 
     :ok
+  end
+
+  defp log_extra_triggers(extra_found_triggers) do
+    Logger.error("""
+    Found the following extra EctoWatch triggers:
+
+    #{Enum.map_join(extra_found_triggers, "\n", fn trigger_details -> "\"#{trigger_details.name}\" in the table \"#{trigger_details.table_schema}\".\"#{trigger_details.table_name}\"" end)}
+
+    ...but they were not specified in the watcher options.
+
+    To cleanup unspecified triggers and functions, run your app with the `ECTO_WATCH_CLEANUP`
+    environment variable set to the value `cleanup`
+    """)
+  end
+
+  defp log_extra_functions(extra_found_functions) do
+    Logger.error("""
+    Found the following extra EctoWatch functions:
+
+    #{Enum.map_join(extra_found_functions, "\n", fn function_details -> "\"#{function_details.name}\" in the schema \"#{function_details.schema}\"" end)}
+
+    To cleanup unspecified triggers and functions, run your app with the `ECTO_WATCH_CLEANUP`
+    environment variable set to the value `cleanup`
+    """)
   end
 
   defp triggers_by_repo_mod do
