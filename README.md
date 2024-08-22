@@ -107,7 +107,7 @@ The package can be installed from [hex](https://hex.pm/packages/ecto_watch) by a
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.11.0"}
+    {:ecto_watch, "~> 0.11.1"}
   ]
 end
 ```
