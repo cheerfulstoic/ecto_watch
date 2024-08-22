@@ -102,13 +102,12 @@ There are a lot of features to check out!  Check out the [HexDocs documentation]
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ecto_watch` to your list of dependencies in `mix.exs`:
+The package can be installed from [hex](https://hex.pm/packages/ecto_watch) by adding `ecto_watch` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.9.5"}
+    {:ecto_watch, "~> 0.11.0"}
   ]
 end
 ```
