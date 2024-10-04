@@ -36,18 +36,18 @@ You can also use labels in general without tracking specific columns:
    pub_sub: MyApp.PubSub,
    watchers: [
      # ...
-     {User, :updated, label: :user_update},
+     {User, :updated, label: :user_updated},
      # ...
    ]}
 
   # subscribing
-  EctoWatch.subscribe(:user_update)
+  EctoWatch.subscribe(:user_updated)
   # or...
-  EctoWatch.subscribe(:user_update, package.id)
+  EctoWatch.subscribe(:user_updated, package.id)
   # or...
-  EctoWatch.subscribe(:user_update, {:role_id, role_id})
+  EctoWatch.subscribe(:user_updated, {:role_id, role_id})
 
   # handling messages
-  def handle_info({:user_update, %{id: id}}, socket) do
+  def handle_info({:user_updated, %{id: id}}, socket) do
 ```
 
