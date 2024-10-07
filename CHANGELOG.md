@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.11.2] - 2023-10-07
+
+### Fixed
+
+- Docs (#32 / thanks @c4710n)
+
 ## [0.11.1] - 2023-08-22
 
 ### Fixed
@@ -154,4 +160,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Support for ecto's `@schema_prefix`
-
