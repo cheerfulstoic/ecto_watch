@@ -41,7 +41,6 @@ defmodule EctoWatch do
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
-  @since "0.8.0"
   @deprecated "subscribe/3 was removed in version 0.8.0. See the updated documentation"
   def subscribe(schema_mod_or_label, update_type, id) when is_atom(schema_mod_or_label) do
     if Helpers.ecto_schema_mod?(schema_mod_or_label) do
