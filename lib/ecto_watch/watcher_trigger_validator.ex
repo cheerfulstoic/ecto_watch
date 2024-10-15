@@ -40,6 +40,7 @@ defmodule EctoWatch.WatcherTriggerValidator do
         if MapSet.size(extra_found_triggers) > 0 do
           log_extra_triggers(extra_found_triggers)
         end
+
         if MapSet.size(extra_found_functions) > 0 do
           log_extra_functions(extra_found_functions)
         end
