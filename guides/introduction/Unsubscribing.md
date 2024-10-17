@@ -1,5 +1,3 @@
-## Unsubscribing
-
 To unsubscribe, you can simply use the schema/type or the label in the same way that you did for subscribing.  So if you subscribe like so:
 
 ```elixir
