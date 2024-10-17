@@ -190,7 +190,7 @@ defmodule EctoWatch do
   end
 
   @doc """
-  Unsubscribe to notifications from watchers that you previously subscribe. It
+  Unsubscribe from notifications from watchers that you previously subscribe. It
   receives the same params for `subscribe/2`.
 
   Examples:
