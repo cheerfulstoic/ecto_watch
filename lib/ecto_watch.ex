@@ -190,6 +190,31 @@ defmodule EctoWatch do
   end
 
   @doc """
+  Unsubscribe to notifications from watchers that you previously subscribe. It
+  receives the same params for `subscribe/2`.
+
+  Examples:
+
+      iex> EctoWatch.unsubscribe({Comment, :updated})
+      iex> EctoWatch.unsubscribe({Comment, :updated}, {:post_id, post_id})
+  """
+  @spec unsubscribe(watcher_identifier(), term()) :: :ok | {:error, term()}
+  def unsubscribe(watcher_identifier, id \\ nil) do
+    validate_ecto_watch_running!()
+
+    with :ok <- validate_identifier(watcher_identifier),
+         {:ok, {pub_sub_mod, channel_name, debug?}} <-
+           WatcherServer.pub_sub_subscription_details(watcher_identifier, id) do
+      if(debug?, do: debug_log(watcher_identifier, "Unsubscribing to watcher"))
+
+      Phoenix.PubSub.unsubscribe(pub_sub_mod, channel_name)
+    else
+      {:error, error} ->
+        raise ArgumentError, error
+    end
+  end
+
+  @doc """
   Returns details about a watcher for reflection purposes
 
   For example if you need to know what the function/triggers are in the database.
