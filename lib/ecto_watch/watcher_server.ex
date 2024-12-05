@@ -69,7 +69,10 @@ defmodule EctoWatch.WatcherServer do
       [options.schema_definition.primary_key | options.extra_columns]
       |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
 
-    details = watcher_details(%{unique_label: unique_label, repo_mod: repo_mod, options: options})
+    details =
+      watcher_details(%{unique_label: unique_label, repo_mod: repo_mod, options: options})
+
+    validate_watcher_details!(details, options)
 
     Ecto.Adapters.SQL.query!(
       repo_mod,
@@ -92,6 +95,7 @@ defmodule EctoWatch.WatcherServer do
     )
 
     # Can't use the "OR REPLACE" syntax before postgres v13.3.4, so using DROP TRIGGER IF EXISTS
+    # THOUGHT: Could messages be lost during the drop/re-create?
     Ecto.Adapters.SQL.query!(
       repo_mod,
       """
@@ -236,6 +240,43 @@ defmodule EctoWatch.WatcherServer do
       notify_channel: unique_label,
       trigger_name: "#{unique_label}_trigger"
     }
+  end
+
+  defp validate_watcher_details!(watcher_details, watcher_options) do
+    case Ecto.Adapters.SQL.query!(watcher_details.repo_mod, "SHOW max_identifier_length", []) do
+      %Postgrex.Result{rows: [[max_identifier_length]]} ->
+        max_identifier_length = String.to_integer(max_identifier_length)
+
+        max_byte_size =
+          max(
+            byte_size(watcher_details.function_name),
+            byte_size(watcher_details.trigger_name)
+          )
+
+        if max_byte_size > max_identifier_length do
+          difference = max_byte_size - max_identifier_length
+
+          if watcher_options.label do
+            raise """
+              Error for watcher: #{inspect(identifier(watcher_options))}
+
+              Label is #{difference} character(s) too long for the auto-generated Postgres trigger name.
+            """
+          else
+            raise """
+              Error for watcher: #{inspect(identifier(watcher_options))}
+
+              Schema module name is #{difference} character(s) too long for the auto-generated Postgres trigger name.
+
+              You may want to use the `label` option
+
+            """
+          end
+        end
+
+      other ->
+        raise "Unexpected result when querying for max_identifier_length: #{inspect(other)}"
+    end
   end
 
   def topics(update_type, unique_label, returned_values, identifier_columns)
