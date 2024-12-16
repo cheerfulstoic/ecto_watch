@@ -25,7 +25,10 @@ defmodule EctoWatch.MixProject do
     [
       maintainers: ["Brian Underwood"],
       licenses: ["MIT"],
-      links: %{"GitHub" => @source_url}
+      links: %{
+        "GitHub" => @source_url,
+        Changelog: "#{@source_url}/blob/main/CHANGELOG.md",
+      }
     ]
   end
 
