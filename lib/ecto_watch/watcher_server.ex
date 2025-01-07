@@ -234,7 +234,7 @@ defmodule EctoWatch.WatcherServer do
       schema_definition: options.schema_definition,
       function_name: "#{unique_label}_func",
       notify_channel: unique_label,
-      trigger_name: "#{unique_label}_trigger"
+      trigger_name: "#{unique_label}_trig"
     }
   end
 
@@ -252,34 +252,13 @@ defmodule EctoWatch.WatcherServer do
     unique_label(watcher_options)
   end
 
-  # To make things simple: generate a single string which is unique for each watcher
-  # that can be used as the watcher process name, trigger name, trigger function name,
-  # and Phoenix.PubSub channel name.
-  defp unique_label(%WatcherOptions{} = options) do
-    options
-    |> identifier()
-    |> unique_label()
-  end
-
-  defp unique_label({schema_mod, update_type}) do
-    :"ew_#{update_type}_for_#{Helpers.label(schema_mod)}"
-  end
-
-  defp unique_label(label) do
-    :"ew_for_#{Helpers.label(label)}"
-  end
-
-  defp identifier(%WatcherOptions{} = options) do
-    if options.label do
-      options.label
-    else
-      {options.schema_definition.label, options.update_type}
-    end
+  defp unique_label(anything) do
+    EctoWatch.Label.unique_label(anything)
   end
 
   defp debug_log(%{debug?: debug_value} = options, message) do
     if debug_value do
-      Helpers.debug_log(identifier(options), message)
+      Helpers.debug_log(EctoWatch.Label.identifier(options), message)
     end
   end
 end
