@@ -5,8 +5,6 @@ defmodule EctoWatchTest do
 
   import ExUnit.CaptureLog
 
-  # TODO: Long module names (testing for limits of postgres labels)
-  # TODO: More tests for label option
   # TODO: Pass non-lists to `extra_columns`
   # TODO: Pass strings in list to `extra_columns`
 

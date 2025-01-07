@@ -1,4 +1,5 @@
 defmodule EctoWatch.Label do
+  @moduledoc false
   alias EctoWatch.Helpers
   alias EctoWatch.Options.WatcherOptions
 
@@ -35,6 +36,7 @@ defmodule EctoWatch.Label do
       :inserted -> "i"
       :updated -> "u"
       :deleted -> "d"
+      _ -> raise "unknown update_type: #{update_type}!"
     end
   end
 
@@ -44,11 +46,11 @@ defmodule EctoWatch.Label do
     chsum = :erlang.phash2(string_label) |> to_string()
     length = String.length(string_label)
 
-    if length > 63 - 9 do
-      # 63 = max length of a postgres identifier
-      # 9  = ew_for_ + update_type + underscores
-      # 5  = _func / _trig
-      max_length = 63 - 9 - String.length(chsum) - 5
+    # 63 = max length of a postgres identifier
+    # 10  = ew_for_ + update_type + underscores
+    # 5  = _func / _trig
+    if length > 63 - 10 - 5 do
+      max_length = 63 - 10 - 5 - String.length(chsum)
       sublabel = String.slice(string_label, 0, max_length)
       "#{sublabel}_#{chsum}"
     else
