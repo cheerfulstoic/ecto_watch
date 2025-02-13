@@ -11,6 +11,6 @@ If you use the `label` option you'll need to change your subscriptions and `hand
 If your label is too long, you'll get the following error:
 
 ```text
-              Label is #{difference} character(s) too long to be part of the Postgres trigger name.
+              Label is XXX character(s) too long to be part of the Postgres trigger name.
 
 ```
