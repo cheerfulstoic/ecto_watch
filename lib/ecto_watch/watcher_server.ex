@@ -260,7 +260,7 @@ defmodule EctoWatch.WatcherServer do
             raise """
               Error for watcher: #{inspect(identifier(watcher_options))}
 
-              Label is #{difference} character(s) too long for the auto-generated Postgres trigger name.
+              Label is #{difference} character(s) too long to be part of the Postgres trigger name.
             """
           else
             raise """
