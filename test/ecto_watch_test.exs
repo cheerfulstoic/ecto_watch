@@ -50,6 +50,30 @@ defmodule EctoWatchTest do
     end
   end
 
+  defmodule ModuleWithAReallyLongName do
+    use Ecto.Schema
+
+    @moduledoc """
+    A module that *just* barely fits when creating function/trigger names
+    """
+
+    schema "a_module_with_a_really_long_name" do
+      field(:the_string, :string)
+    end
+  end
+
+  defmodule ModuleWithJustTooLongAName do
+    use Ecto.Schema
+
+    @moduledoc """
+    A module that *just* barely fits when creating function/trigger names
+    """
+
+    schema "a_module_with_just_too_long_a_name" do
+      field(:the_string, :string)
+    end
+  end
+
   setup do
     start_supervised!(TestRepo)
 
@@ -86,6 +110,28 @@ defmodule EctoWatchTest do
           the_string TEXT,
           inserted_at TIMESTAMP,
           updated_at TIMESTAMP
+        )
+      """,
+      []
+    )
+
+    Ecto.Adapters.SQL.query!(
+      TestRepo,
+      """
+        CREATE TABLE a_module_with_a_really_long_name (
+          id SERIAL PRIMARY KEY,
+          the_string TEXT
+        )
+      """,
+      []
+    )
+
+    Ecto.Adapters.SQL.query!(
+      TestRepo,
+      """
+        CREATE TABLE a_module_with_just_too_long_a_name (
+          id SERIAL PRIMARY KEY,
+          the_string TEXT
         )
       """,
       []
@@ -484,6 +530,78 @@ defmodule EctoWatchTest do
 
     test "Empty list of watcher is allowed" do
       start_supervised!({EctoWatch, repo: TestRepo, pub_sub: TestPubSub, watchers: []})
+    end
+
+    test "Errors should be given if the schema module is too long for creating the trigger name" do
+      assert_raise RuntimeError,
+                   ~r/Schema module name is 1 character\(s\) too long for the auto-generated Postgres trigger/,
+                   fn ->
+                     start_supervised!(
+                       {EctoWatch,
+                        repo: TestRepo,
+                        pub_sub: TestPubSub,
+                        watchers: [
+                          {ModuleWithJustTooLongAName, :inserted}
+                        ]}
+                     )
+                   end
+
+      # Everything works fine if you're just at the limit
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {ModuleWithAReallyLongName, :inserted}
+         ]}
+      )
+
+      EctoWatch.subscribe({ModuleWithAReallyLongName, :inserted})
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO a_module_with_a_really_long_name (the_string) VALUES ('the value')",
+        []
+      )
+
+      assert_receive {{ModuleWithAReallyLongName, :inserted}, %{id: _}}
+    end
+
+    test "Errors should be given if the label is too long" do
+      assert_raise RuntimeError,
+                   ~r/Label is 1 character\(s\) too long for the auto-generated Postgres trigger name/,
+                   fn ->
+                     start_supervised!(
+                       {EctoWatch,
+                        repo: TestRepo,
+                        pub_sub: TestPubSub,
+                        watchers: [
+                          {ModuleWithJustTooLongAName, :inserted,
+                           label: :the_label_is_also_just_much_too_long_such_a_shame}
+                        ]}
+                     )
+                   end
+
+      # Everything works fine if you're just at the limit
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {ModuleWithJustTooLongAName, :inserted,
+            label: :the_label_is_also_just_much_too_long_such_a_sham}
+         ]}
+      )
+
+      EctoWatch.subscribe(:the_label_is_also_just_much_too_long_such_a_sham)
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "INSERT INTO a_module_with_just_too_long_a_name (the_string) VALUES ('the value')",
+        []
+      )
+
+      assert_receive {:the_label_is_also_just_much_too_long_such_a_sham, %{id: _}}
     end
 
     test "subscribe requires proper Ecto schema", %{
