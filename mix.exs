@@ -67,12 +67,13 @@ defmodule EctoWatch.MixProject do
   end
 
   def extras() do
-    [ 
+    [
       "guides/introduction/Getting Started.md",
       "guides/introduction/Tracking columns and using labels.md",
       "guides/introduction/Getting additional values.md",
       "guides/introduction/Watching without a schema.md",
       "guides/introduction/Unsubscribing.md",
+      "guides/introduction/Trigger Length Errors.md",
       "guides/introduction/Debugging.md",
       "guides/introduction/Notes.md",
       "guides/howtos/Upgrading Versions.md",
