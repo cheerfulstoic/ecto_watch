@@ -569,7 +569,7 @@ defmodule EctoWatchTest do
 
     test "Errors should be given if the label is too long" do
       assert_raise RuntimeError,
-                   ~r/Label is 1 character\(s\) too long for the auto-generated Postgres trigger name/,
+                   ~r/Label is 1 character\(s\) too long to be part of the Postgres trigger name./,
                    fn ->
                      start_supervised!(
                        {EctoWatch,
