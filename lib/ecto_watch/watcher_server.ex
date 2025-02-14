@@ -219,7 +219,7 @@ defmodule EctoWatch.WatcherServer do
             type,
             state.unique_label,
             returned_values,
-            state.identifier_columns
+            state.options.schema_definition
           ) do
       debug_log(
         state.options,
@@ -279,12 +279,23 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
-  def topics(update_type, unique_label, returned_values, identifier_columns)
+  def topics(update_type, unique_label, returned_values, schema_definition)
       when update_type in ~w[inserted updated deleted]a do
+    identifier_columns =
+      case update_type do
+        :inserted ->
+          schema_definition.association_columns
+
+        _ ->
+          [schema_definition.primary_key | schema_definition.association_columns]
+      end
+
+    # |> MapSet.new()
+
     [
       unique_label
       | returned_values
-        |> Enum.filter(fn {k, _} -> MapSet.member?(identifier_columns, k) end)
+        |> Enum.filter(fn {k, _} -> k in identifier_columns end)
         |> Enum.map(fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)
     ]
   end
