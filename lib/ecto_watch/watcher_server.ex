@@ -284,6 +284,9 @@ defmodule EctoWatch.WatcherServer do
     identifier_columns =
       case update_type do
         :inserted ->
+          # There isn't a need to broadcast to topics specifically
+          # for the primary key because it's not possible to subscribe
+          # to IDs which haven't been created yet.
           schema_definition.association_columns
 
         _ ->
