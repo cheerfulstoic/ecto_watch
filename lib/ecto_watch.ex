@@ -3,6 +3,7 @@ defmodule EctoWatch do
   A library to allow you to easily get notifications about database changes directly from PostgreSQL.
   """
 
+  @adapter Application.compile_env(:ecto_watch, :adapter, EctoWatch.Adapter.PubSub)
   alias EctoWatch.Helpers
   alias EctoWatch.WatcherServer
   alias EctoWatch.WatcherTriggerValidator
@@ -10,10 +11,14 @@ defmodule EctoWatch do
   use Supervisor
 
   def start_link(opts) do
-    case EctoWatch.Options.validate(opts) do
+    opts
+    |> Keyword.put(:adapter, @adapter)
+    |> EctoWatch.Options.validate()
+    |> case do
       {:ok, validated_opts} ->
         options = EctoWatch.Options.new(validated_opts)
 
+        options.adapter.validate(options)
         validate_watcher_uniqueness(options.watchers)
 
         Supervisor.start_link(__MODULE__, options, name: __MODULE__)
@@ -180,9 +185,9 @@ defmodule EctoWatch do
     with :ok <- validate_identifier(watcher_identifier),
          {:ok, {pub_sub_mod, channel_name, debug?}} <-
            WatcherServer.pub_sub_subscription_details(watcher_identifier, id) do
-      if(debug?, do: debug_log(watcher_identifier, "Subscribing to watcher"))
+      if(debug?, do: debug_log(watcher_identifier, "Subscribing to watcher #{channel_name}"))
 
-      Phoenix.PubSub.subscribe(pub_sub_mod, channel_name)
+      @adapter.subscribe(pub_sub_mod, channel_name)
     else
       {:error, error} ->
         raise ArgumentError, error
@@ -207,7 +212,7 @@ defmodule EctoWatch do
            WatcherServer.pub_sub_subscription_details(watcher_identifier, id) do
       if(debug?, do: debug_log(watcher_identifier, "Unsubscribing to watcher"))
 
-      Phoenix.PubSub.unsubscribe(pub_sub_mod, channel_name)
+      @adapter.unsubscribe(pub_sub_mod, channel_name)
     else
       {:error, error} ->
         raise ArgumentError, error

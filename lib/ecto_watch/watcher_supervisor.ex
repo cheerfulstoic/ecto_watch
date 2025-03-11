@@ -20,7 +20,7 @@ defmodule EctoWatch.WatcherSupervisor do
           id: WatcherServer.name(watcher_options),
           start:
             {WatcherServer, :start_link,
-             [{options.repo_mod, options.pub_sub_mod, watcher_options}]}
+             [{options.adapter, options.repo_mod, options.pub_sub_mod, watcher_options}]}
         }
       end)
 

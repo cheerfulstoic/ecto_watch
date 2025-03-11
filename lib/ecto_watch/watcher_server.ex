@@ -35,16 +35,16 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
-  def start_link({repo_mod, pub_sub_mod, watcher_options}) do
+  def start_link({adapter, repo_mod, pub_sub_mod, watcher_options}) do
     GenServer.start_link(
       __MODULE__,
-      {repo_mod, pub_sub_mod, watcher_options},
+      {adapter, repo_mod, pub_sub_mod, watcher_options},
       name: unique_label(watcher_options)
     )
   end
 
   @impl true
-  def init({repo_mod, pub_sub_mod, options}) do
+  def init({adapter, repo_mod, pub_sub_mod, options}) do
     debug_log(options, "Starting server")
 
     unique_label = "#{unique_label(options)}"
@@ -119,6 +119,7 @@ defmodule EctoWatch.WatcherServer do
 
     {:ok,
      %{
+       adapter: adapter,
        repo_mod: repo_mod,
        pub_sub_mod: pub_sub_mod,
        unique_label: unique_label,
@@ -151,12 +152,7 @@ defmodule EctoWatch.WatcherServer do
 
     result =
       with :ok <- validate_subscription(state, identifier, column) do
-        channel_name =
-          if column && value do
-            "#{state.unique_label}|#{column}|#{value}"
-          else
-            "#{state.unique_label}"
-          end
+        channel_name = state.adapter.subscription_channel(state.unique_label, column, value)
 
         {:ok, {state.pub_sub_mod, channel_name, state.options.debug?}}
       end
@@ -219,14 +215,21 @@ defmodule EctoWatch.WatcherServer do
             type,
             state.unique_label,
             returned_values,
-            state.options.schema_definition
+            state.options.schema_definition,
+            state.adapter
           ) do
       debug_log(
         state.options,
         "Broadcasting to Phoenix PubSub topic `#{topic}`: #{inspect(message)}"
       )
 
-      Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
+      state.adapter.dispatch(state.pub_sub_mod, topic, message)
+
+      # Registry.dispatch(EventRegistry, topic, fn pids ->
+      #   for {pid, _} <- pids do
+      #     send(pid, message)
+      #   end
+      # end)
     end
 
     {:noreply, state}
@@ -279,7 +282,7 @@ defmodule EctoWatch.WatcherServer do
     end
   end
 
-  def topics(update_type, unique_label, returned_values, schema_definition)
+  def topics(update_type, unique_label, returned_values, schema_definition, adapter)
       when update_type in ~w[inserted updated deleted]a do
     identifier_columns =
       case update_type do
@@ -299,7 +302,7 @@ defmodule EctoWatch.WatcherServer do
       unique_label
       | returned_values
         |> Enum.filter(fn {k, _} -> k in identifier_columns end)
-        |> Enum.map(fn {k, v} -> "#{unique_label}|#{k}|#{v}" end)
+        |> Enum.map(fn {k, v} -> adapter.subscription_channel(unique_label, k, v) end)
     ]
   end
 

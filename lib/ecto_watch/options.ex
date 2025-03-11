@@ -3,10 +3,11 @@ defmodule EctoWatch.Options do
 
   alias EctoWatch.Options.WatcherOptions
 
-  defstruct [:repo_mod, :pub_sub_mod, :watchers, :debug?]
+  defstruct [:adapter, :repo_mod, :pub_sub_mod, :watchers, :debug?]
 
   def new(opts) do
     %__MODULE__{
+      adapter: opts[:adapter],
       repo_mod: opts[:repo],
       pub_sub_mod: opts[:pub_sub],
       watchers:
@@ -18,6 +19,11 @@ defmodule EctoWatch.Options do
 
   def validate(opts) do
     schema = [
+      adapter: [
+        type: :atom,
+        required: false
+        # {:custom, __MODULE__, :check_valid_adapter_module, []}
+      ],
       repo: [
         type: {:custom, __MODULE__, :check_valid_repo_module, []},
         required: true
@@ -54,8 +60,8 @@ defmodule EctoWatch.Options do
     Phoenix.PubSub.node_name(pubsub_mod)
 
     {:ok, pubsub_mod}
-  rescue
-    _ -> {:error, "#{inspect(pubsub_mod)} was not a currently running Phoenix PubSub module"}
+    # rescue
+    #   _ -> {:error, "#{inspect(pubsub_mod)} was not a currently running Phoenix PubSub module"}
   end
 
   def check_valid_pubsub_module(repo), do: {:error, "#{inspect(repo)} was not an atom"}
