@@ -74,6 +74,20 @@ defmodule EctoWatchTest do
     end
   end
 
+  defmodule ThingTwo do
+    use Ecto.Schema
+
+    @moduledoc """
+    This is a Schema that has columns with special characters.
+    """
+
+    schema "ThingTwo" do
+      field(:the_string, :string, source: :theString)
+
+      timestamps()
+    end
+  end
+
   setup do
     start_supervised!(TestRepo)
 
@@ -132,6 +146,19 @@ defmodule EctoWatchTest do
         CREATE TABLE a_module_with_just_too_long_a_name (
           id SERIAL PRIMARY KEY,
           the_string TEXT
+        )
+      """,
+      []
+    )
+
+    Ecto.Adapters.SQL.query!(
+      TestRepo,
+      """
+        CREATE TABLE "ThingTwo" (
+          id SERIAL PRIMARY KEY,
+          "theString" TEXT,
+          inserted_at TIMESTAMP,
+          updated_at TIMESTAMP
         )
       """,
       []
@@ -688,6 +715,21 @@ defmodule EctoWatchTest do
                    fn ->
                      EctoWatch.subscribe({Thing, 1234}, {:parent_thing_id, already_existing_id1})
                    end
+    end
+
+    test "watcher will handle columns that are camelCased" do
+      assert {:ok, _pid} =
+               EctoWatch.start_link(
+                 repo: TestRepo,
+                 pub_sub: TestPubSub,
+                 watchers: [
+                   {ThingTwo, :updated,
+                    trigger_columns: [
+                      :the_string
+                    ],
+                    label: :thing_two_updated}
+                 ]
+               )
     end
   end
 
