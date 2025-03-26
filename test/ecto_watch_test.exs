@@ -731,6 +731,34 @@ defmodule EctoWatchTest do
                  ]
                )
     end
+
+    test "watcher will translate fields in the pg functions correctly" do
+      assert {:ok, _pid} =
+               EctoWatch.start_link(
+                 repo: TestRepo,
+                 pub_sub: TestPubSub,
+                 watchers: [
+                   {ThingTwo, :updated,
+                    extra_columns: [
+                      :the_string
+                    ],
+                    trigger_columns: [
+                      :the_string
+                    ],
+                    label: :thing_two_updated}
+                 ]
+               )
+
+      details = EctoWatch.details(:thing_two_updated)
+
+      %Postgrex.Result{rows: [[row | _] | _]} =
+        Ecto.Adapters.SQL.query!(
+          details.repo_mod,
+          "SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = '#{details.function_name}'"
+        )
+
+      assert row =~ ~r/'the_string',row."theString"/
+    end
   end
 
   describe "trigger cleanup" do
