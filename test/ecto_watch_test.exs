@@ -22,10 +22,10 @@ defmodule EctoWatchTest do
     schema "things" do
       field(:the_string, :string)
       field(:the_integer, :integer)
-      field(:the_float, :float)
+      field(:the_float, :float, source: :theFloat)
 
       belongs_to(:parent_thing, Thing)
-      belongs_to(:other_parent_thing, Thing)
+      belongs_to(:other_parent_thing, Thing, source: :otherParentThingId)
 
       timestamps()
     end
@@ -74,20 +74,6 @@ defmodule EctoWatchTest do
     end
   end
 
-  defmodule ThingTwo do
-    use Ecto.Schema
-
-    @moduledoc """
-    This is a Schema that has columns with special characters.
-    """
-
-    schema "ThingTwo" do
-      field(:the_string, :string, source: :theString)
-
-      timestamps()
-    end
-  end
-
   setup do
     start_supervised!(TestRepo)
 
@@ -105,12 +91,14 @@ defmodule EctoWatchTest do
           id SERIAL PRIMARY KEY,
           the_string TEXT,
           the_integer INTEGER,
-          the_float FLOAT,
+          "theFloat" FLOAT,
           parent_thing_id INTEGER,
+          "otherParentThingId" INTEGER,
           extra_field TEXT,
           inserted_at TIMESTAMP,
           updated_at TIMESTAMP,
-          CONSTRAINT "things_parent_thing_id_fkey" FOREIGN KEY ("parent_thing_id") REFERENCES "things"("id")
+          CONSTRAINT "things_parent_thing_id_fkey" FOREIGN KEY ("parent_thing_id") REFERENCES "things"("id"),
+          CONSTRAINT "things_other_parent_thing_id_fkey" FOREIGN KEY ("otherParentThingId") REFERENCES "things"("id")
         )
       """,
       []
@@ -151,26 +139,13 @@ defmodule EctoWatchTest do
       []
     )
 
-    Ecto.Adapters.SQL.query!(
-      TestRepo,
-      """
-        CREATE TABLE "ThingTwo" (
-          id SERIAL PRIMARY KEY,
-          "theString" TEXT,
-          inserted_at TIMESTAMP,
-          updated_at TIMESTAMP
-        )
-      """,
-      []
-    )
-
     %Postgrex.Result{
       rows: [[already_existing_id1]]
     } =
       Ecto.Adapters.SQL.query!(
         TestRepo,
         """
-        INSERT INTO things (the_string, the_integer, the_float, extra_field, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, 'hey', NOW(), NOW())
+        INSERT INTO things (the_string, the_integer, \"theFloat\", extra_field, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, 'hey', NOW(), NOW())
         RETURNING id
         """,
         []
@@ -182,7 +157,7 @@ defmodule EctoWatchTest do
       Ecto.Adapters.SQL.query!(
         TestRepo,
         """
-        INSERT INTO things (the_string, the_integer, the_float, parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8899, 24.52, #{already_existing_id1}, 'hey', NOW(), NOW())
+        INSERT INTO things (the_string, the_integer, \"theFloat\", parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8899, 24.52, #{already_existing_id1}, 'hey', NOW(), NOW())
         RETURNING id
         """,
         []
@@ -716,49 +691,6 @@ defmodule EctoWatchTest do
                      EctoWatch.subscribe({Thing, 1234}, {:parent_thing_id, already_existing_id1})
                    end
     end
-
-    test "watcher will handle columns that are camelCased" do
-      assert {:ok, _pid} =
-               EctoWatch.start_link(
-                 repo: TestRepo,
-                 pub_sub: TestPubSub,
-                 watchers: [
-                   {ThingTwo, :updated,
-                    trigger_columns: [
-                      :the_string
-                    ],
-                    label: :thing_two_updated}
-                 ]
-               )
-    end
-
-    test "watcher will translate fields in the pg functions correctly" do
-      assert {:ok, _pid} =
-               EctoWatch.start_link(
-                 repo: TestRepo,
-                 pub_sub: TestPubSub,
-                 watchers: [
-                   {ThingTwo, :updated,
-                    extra_columns: [
-                      :the_string
-                    ],
-                    trigger_columns: [
-                      :the_string
-                    ],
-                    label: :thing_two_updated}
-                 ]
-               )
-
-      details = EctoWatch.details(:thing_two_updated)
-
-      %Postgrex.Result{rows: [[row | _] | _]} =
-        Ecto.Adapters.SQL.query!(
-          details.repo_mod,
-          "SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = '#{details.function_name}'"
-        )
-
-      assert row =~ ~r/'the_string',row."theString"/
-    end
   end
 
   describe "trigger cleanup" do
@@ -907,7 +839,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -926,7 +858,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -937,7 +869,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -986,7 +918,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1008,7 +940,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1048,7 +980,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8900, 24.53, #{already_existing_id2}, 'hey', NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8900, 24.53, #{already_existing_id2}, 'hey', NOW(), NOW())",
         []
       )
 
@@ -1066,7 +998,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8900, 24.53, #{already_existing_id2}, 'hey', NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", parent_thing_id, extra_field, inserted_at, updated_at) VALUES ('the other value', 8900, 24.53, #{already_existing_id2}, 'hey', NOW(), NOW())",
         []
       )
 
@@ -1125,7 +1057,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1367,7 +1299,7 @@ defmodule EctoWatchTest do
       assert_receive {:thing_custom_event, %{id: ^already_existing_id1}}
       refute_receive {_, %{id: ^already_existing_id2}}
 
-      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999", [])
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET \"theFloat\" = 99.999", [])
 
       assert_receive {:thing_custom_event, %{id: ^already_existing_id1}}
       refute_receive {_, %{id: ^already_existing_id2}}
@@ -1376,7 +1308,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_string = 'the new value'", [])
       Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_integer = 9998", [])
-      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.899", [])
+      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET \"theFloat\" = 99.899", [])
 
       refute_receive {_, %{id: ^already_existing_id1}}
       refute_receive {_, %{id: ^already_existing_id2}}
@@ -1417,9 +1349,13 @@ defmodule EctoWatchTest do
 
       refute_receive {{_, :updated}, %{id: ^already_existing_id2}}
 
-      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999 WHERE id = $1", [
-        already_existing_id1
-      ])
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "UPDATE things SET \"theFloat\" = 99.999 WHERE id = $1",
+        [
+          already_existing_id1
+        ]
+      )
 
       assert_receive {{Thing, :updated},
                       %{id: ^already_existing_id1, the_integer: 9999, the_float: 99.999}}
@@ -1438,9 +1374,13 @@ defmodule EctoWatchTest do
         already_existing_id1
       ])
 
-      Ecto.Adapters.SQL.query!(TestRepo, "UPDATE things SET the_float = 99.999 WHERE id = $1", [
-        already_existing_id1
-      ])
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        "UPDATE things SET \"theFloat\" = 99.999 WHERE id = $1",
+        [
+          already_existing_id1
+        ]
+      )
 
       refute_receive {{Thing, :updated}, %{id: ^already_existing_id1}}
 
@@ -1488,7 +1428,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1502,7 +1442,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1540,7 +1480,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1553,7 +1493,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1586,7 +1526,7 @@ defmodule EctoWatchTest do
 
       Ecto.Adapters.SQL.query!(
         TestRepo,
-        "INSERT INTO things (the_string, the_integer, the_float, inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
+        "INSERT INTO things (the_string, the_integer, \"theFloat\", inserted_at, updated_at) VALUES ('the value', 4455, 84.52, NOW(), NOW())",
         []
       )
 
@@ -1706,6 +1646,16 @@ defmodule EctoWatchTest do
                schema_prefix: "public",
                table_name: "things",
                primary_key: :id,
+               column_map: %{
+                 id: :id,
+                 inserted_at: :inserted_at,
+                 other_parent_thing_id: :otherParentThingId,
+                 parent_thing_id: :parent_thing_id,
+                 the_float: :theFloat,
+                 the_integer: :the_integer,
+                 the_string: :the_string,
+                 updated_at: :updated_at
+               },
                columns: [
                  :id,
                  :the_string,
@@ -1732,6 +1682,16 @@ defmodule EctoWatchTest do
                schema_prefix: "public",
                table_name: "things",
                primary_key: :id,
+               column_map: %{
+                 id: :id,
+                 inserted_at: :inserted_at,
+                 other_parent_thing_id: :otherParentThingId,
+                 parent_thing_id: :parent_thing_id,
+                 the_float: :theFloat,
+                 the_integer: :the_integer,
+                 the_string: :the_string,
+                 updated_at: :updated_at
+               },
                columns: [
                  :id,
                  :the_string,

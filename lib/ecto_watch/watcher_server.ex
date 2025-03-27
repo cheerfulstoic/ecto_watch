@@ -59,7 +59,7 @@ defmodule EctoWatch.WatcherServer do
             # Get the actual column names from the schema definition and make
             # sure they are quoted in case of special characters
             options.trigger_columns
-            |> Enum.map(&field_source_name(options.schema_definition.label, &1))
+            |> Enum.map(&source_column(options.schema_definition, &1))
             |> Enum.join(", ")
             |> then(&"UPDATE OF #{&1}")
           else
@@ -74,7 +74,7 @@ defmodule EctoWatch.WatcherServer do
       [options.schema_definition.primary_key | options.extra_columns]
       |> Enum.map_join(
         ",",
-        &"'#{&1}',row.#{field_source_name(options.schema_definition.label, &1)}"
+        &"'#{&1}',row.#{source_column(options.schema_definition, &1)}"
       )
 
     details =
@@ -139,15 +139,10 @@ defmodule EctoWatch.WatcherServer do
      }}
   end
 
-  defp field_source_name(schema, column) when is_atom(schema) do
-    if function_exported?(schema, :__schema__, 1) do
-      "\"#{schema.__schema__(:field_source, column)}\""
-    else
-      "\"#{column}\""
-    end
+  defp source_column(schema_definition, column) do
+    Map.get(schema_definition.column_map, column, column)
+    |> then(&"\"#{&1}\"")
   end
-
-  defp field_source_name(_schema, column), do: "\"#{column}\""
 
   @impl true
   def handle_call(
