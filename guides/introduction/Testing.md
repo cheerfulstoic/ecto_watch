@@ -40,7 +40,7 @@ end
 ```
 
 ```elixir
-# my_update_counter.ex -> module to test
+# update_counter.ex -> module to test
 defmodule MyApp.UpdateCounter do
   use GenServer
   
