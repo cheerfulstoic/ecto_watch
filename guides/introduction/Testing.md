@@ -17,16 +17,19 @@ This forces all database changes to be persisted, so notifications will be emitt
 defmodule My.Application do
   use Application
 
+  alias MyApp.Records
+
   @impl true
   def start(_type, _args) do
     children = [
      {EctoWatch,
        repo: MyRepo,
        pub_sub: MyPubSub,
-       watchers: [
-         {record, :updated,
-          trigger_columns: [:example_column], label: :notification}
-       ]}
+       watchers: [ 
+        {Records.Record, :updated}
+       ]},
+      # Ensure that your module is started after EctoWatch
+      {MyApp.UpdateCounter, []}
     ]
 
 
@@ -37,32 +40,59 @@ end
 ```
 
 ```elixir
-# my_notifier.ex -> module to test
-defmodule MyNotifier do
+# my_update_counter.ex -> module to test
+defmodule MyApp.UpdateCounter do
   use GenServer
   
-  # Rest of the GenServer Code
+  alias MyApp.Records
 
-  # Handle incoming notifications and update state
-  def handle_info({:notification, %{id: id}}, state) do
-    new_state = Map.update(state, :counter, 1, &(&1 + 1))
-    {:noreply, new_state}
+  def start_link(_opts) do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def handle_call(:get_state, _from, state), do: {:reply, state, state}
+  def init(_opts) do
+    :ok = EctoWatch.subscribe(:notification)
+    {:ok, %{}}
+  end
+
+  def get_total_counts() do
+    GenServer.call(__MODULE__, :get_counts)
+  end
+
+  def get_total_counts_by_id(id) do
+    GenServer.call(__MODULE__, {:get_counts, id})
+  end
+
+  # Handle incoming notifications and update state
+  def handle_info({Records.Record, :updated}, counts) do
+    {:noreply, Map.update(counts, id, 1, &(&1 + 1))}
+  end
+
+  def handle_call({:get_count, id}, _from, counts), do: {:reply, Map.get(counts, id), counts}
+
+  def handle_call(:get_counts, _from, counts) do
+    total =
+      counts
+      |> Map.values()
+      |> Enum.sum()
+
+    {:reply, total, counts}
+  end
 end
 ```
 
 in our tests
 
 ```elixir
-# my_notifier_test.exs
-defmodule MyNotifierTest do
+# update_counter_test.exs
+defmodule MyApp.UpdateCounterTest do
   use ExUnit.Case
+
+  alias MyApp.Records
 
   setup do
     # Ensure database changes are committed during tests
-    Ecto.Adapters.SQL.Sandbox.checkout(Repo, sandbox: false)
+    Ecto.Adapters.SQL.Sandbox.checkout(MyRepo, sandbox: false)
 
     # Clean up database before running each test
     cleanup()
@@ -72,18 +102,21 @@ defmodule MyNotifierTest do
     # Add logic to remove test records from the database
   end
 
-  test "receives a notification when the image description is updated" do
-    # Subscribe to notifications for assertions
-    :ok = EctoWatch.subscribe(:notification)
+test "counter increments whenever a record is updated" do  
+    assert UpdateCounter.get_total_counts == 0
 
-    # Based on our application config the following should emit the notification
-    # event if committed
-    record = record_fixture(%{})
-    Records.update_record(record, %{key: "some_value"})
+    # Based on our application config the following should emit the notifications  
+    # events if committed  
+    record_1 = record_fixture()
+    record_2 = record_fixture()
+    Records.update_record(record_1, %{key: "some_value"})  
+    Records.update_record(record_2, %{key: "some_value"})  
 
-    assert_receive {:notification, %{id: ^record.id}}, 2000
+    # Ensure core logic was executed  
+    assert UpdateCounter.get_total_counts_by_id(record_1.id) == 1
+    assert UpdateCounter.get_total_counts_by_id(record_2.id) == 1
+    refute UpdateCounter.get_total_counts_by_id("non_existing_id")
+    assert UpdateCounter.get_total_counts() == 2
 
-    state = Notifier.get_state()
-    assert Map.get(state, :counter) == 1  # Ensure core logic were executed
-  end
+  end  
 ```
