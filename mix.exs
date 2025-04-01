@@ -75,6 +75,7 @@ defmodule EctoWatch.MixProject do
       "guides/introduction/Unsubscribing.md",
       "guides/introduction/Trigger Length Errors.md",
       "guides/introduction/Debugging.md",
+      "guides/introduction/Testing.md",
       "guides/introduction/Notes.md",
       "guides/howtos/Upgrading Versions.md",
       "guides/other/Potental TODOs.md",
