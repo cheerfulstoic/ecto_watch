@@ -2,19 +2,22 @@ If you need to verify that your application correctly receives `ecto_watch` even
 
 - **PostgreSQL, not Ecto, emits the notifications.** This means that for your test to capture notifications, the transaction that triggers them **must be committed**.
 
-- **By default, transactions in tests are not committed.** The [`Ecto.Adapters.SQL.Sandbox`](https://hexdocs.pm/ecto_sql/Ecto.Adapters.SQL.Sandbox.html) ensures test transactions are rolled back unless explicitly overridden.  
+- **By default, transactions in tests are not committed.** The [`Ecto.Adapters.SQL.Sandbox`](https://hexdocs.pm/ecto_sql/Ecto.Adapters.SQL.Sandbox.html) ensures test transactions are rolled back unless explicitly overridden.
 
-- **To ensure notifications are sent, disable the sandbox mode for the test:** 
+- **To ensure notifications are sent, disable the sandbox mode for the test:**
+
 ```elixir
 Ecto.Adapters.SQL.Sandbox.checkout(MyRepo, sandbox: false)
-
 ```
+
 This forces all database changes to be persisted, so notifications will be emitted. However, be mindful that you may need to manually clean up test records.
+
+You don't need to disable transactions in *all* test modules, just those where you need to test your integration with `ecto_watch`.
 
 ### Example
 
 ```elixir
-defmodule My.Application do
+defmodule MyApp.Application do
   use Application
 
   alias MyApp.Records
@@ -23,8 +26,8 @@ defmodule My.Application do
   def start(_type, _args) do
     children = [
      {EctoWatch,
-       repo: MyRepo,
-       pub_sub: MyPubSub,
+       repo: MyApp.Repo,
+       pub_sub: MyApp.PubSub,
        watchers: [ 
         {Records.Record, :updated}
        ]},
@@ -33,7 +36,7 @@ defmodule My.Application do
     ]
 
 
-    opts = [strategy: :one_for_one, name: My.Supervisor]
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
@@ -51,16 +54,16 @@ defmodule MyApp.UpdateCounter do
   end
 
   def init(_opts) do
-    :ok = EctoWatch.subscribe(:notification)
+    :ok = EctoWatch.subscribe({Records.Record, :updated})
     {:ok, %{}}
   end
 
-  def get_total_counts() do
-    GenServer.call(__MODULE__, :get_counts)
+  def get_total_counts do
+    GenServer.call(__MODULE__, :get_total_counts)
   end
 
-  def get_total_counts_by_id(id) do
-    GenServer.call(__MODULE__, {:get_counts, id})
+  def get_count(id) do
+    GenServer.call(__MODULE__, {:get_count, id})
   end
 
   # Handle incoming notifications and update state
@@ -68,15 +71,17 @@ defmodule MyApp.UpdateCounter do
     {:noreply, Map.update(counts, id, 1, &(&1 + 1))}
   end
 
-  def handle_call({:get_count, id}, _from, counts), do: {:reply, Map.get(counts, id), counts}
-
-  def handle_call(:get_counts, _from, counts) do
+  def handle_call(:get_total_counts, _from, counts) do
     total =
       counts
       |> Map.values()
       |> Enum.sum()
 
     {:reply, total, counts}
+  end
+
+  def handle_call({:get_count, id}, _from, counts) do
+    {:reply, Map.get(counts, id, 0), counts}
   end
 end
 ```
@@ -92,7 +97,7 @@ defmodule MyApp.UpdateCounterTest do
 
   setup do
     # Ensure database changes are committed during tests
-    Ecto.Adapters.SQL.Sandbox.checkout(MyRepo, sandbox: false)
+    Ecto.Adapters.SQL.Sandbox.checkout(MyApp.Repo, sandbox: false)
 
     # Clean up database before running each test
     cleanup()
@@ -103,20 +108,22 @@ defmodule MyApp.UpdateCounterTest do
   end
 
 test "counter increments whenever a record is updated" do  
-    assert UpdateCounter.get_total_counts == 0
-
-    # Based on our application config the following should emit the notifications  
-    # events if committed  
     record_1 = record_fixture()
     record_2 = record_fixture()
-    Records.update_record(record_1, %{key: "some_value"})  
-    Records.update_record(record_2, %{key: "some_value"})  
 
-    # Ensure core logic was executed  
-    assert UpdateCounter.get_total_counts_by_id(record_1.id) == 1
-    assert UpdateCounter.get_total_counts_by_id(record_2.id) == 1
-    refute UpdateCounter.get_total_counts_by_id("non_existing_id")
+    assert UpdateCounter.get_count(record_1.id) == 0
+    assert UpdateCounter.get_count(record_2.id) == 0
+    assert UpdateCounter.get_total_counts() == 0
+
+    # Based on our application config the following should emit the notifications
+    # events if committed
+    Records.update_record(record_1, %{key: "some_value"})
+    Records.update_record(record_2, %{key: "some_value"})
+
+    # Ensure core logic was executed
+    assert UpdateCounter.get_count(record_1.id) == 1
+    assert UpdateCounter.get_count(record_2.id) == 1
+    assert UpdateCounter.get_count("non_existing_id") == 0
     assert UpdateCounter.get_total_counts() == 2
-
-  end  
+  end
 ```
