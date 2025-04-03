@@ -33,11 +33,7 @@ defmodule EctoWatch.Options.WatcherOptions do
       [primary_key] = schema_mod.__schema__(:primary_key)
 
       fields = schema_mod.__schema__(:fields)
-
-      field_map =
-        Enum.reduce(fields, %{}, fn field, acc ->
-          Map.put(acc, field, schema_mod.__schema__(:field_source, field))
-        end)
+      column_map = Map.new(fields, &{&1, schema_mod.__schema__(:field_source, &1)})
 
       association_columns =
         schema_mod.__schema__(:associations)
@@ -48,7 +44,7 @@ defmodule EctoWatch.Options.WatcherOptions do
         schema_prefix: schema_prefix,
         table_name: table_name,
         primary_key: primary_key,
-        column_map: field_map,
+        column_map: column_map,
         columns: fields,
         association_columns: association_columns,
         label: schema_mod
