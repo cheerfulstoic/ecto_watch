@@ -59,8 +59,7 @@ defmodule EctoWatch.WatcherServer do
             # Get the actual column names from the schema definition and make
             # sure they are quoted in case of special characters
             options.trigger_columns
-            |> Enum.map(&source_column(options.schema_definition, &1))
-            |> Enum.join(", ")
+            |> Enum.map_join(", ", &source_column(options.schema_definition, &1))
             |> then(&"UPDATE OF #{&1}")
           else
             "UPDATE"
