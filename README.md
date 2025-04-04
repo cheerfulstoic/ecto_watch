@@ -67,6 +67,8 @@ You can also subscribe to individual records:
   EctoWatch.subscribe({User, :deleted}, user.id)
 ```
 
+**NOTE:** you can't subscribe to the `:inserted` event for specific objects because the primary key's value which you would use to subscribe doesn't exist until the insert happens.
+
 ... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
 ```elixir
