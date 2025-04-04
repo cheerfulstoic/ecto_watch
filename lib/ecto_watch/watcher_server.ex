@@ -56,7 +56,12 @@ defmodule EctoWatch.WatcherServer do
 
         :updated ->
           if options.trigger_columns && options.trigger_columns != [] do
-            "UPDATE OF #{Enum.join(options.trigger_columns, ", ")}"
+            # Get the actual column names from the schema definition and make
+            # sure they are quoted in case of special characters
+            options.trigger_columns
+            |> Enum.map(&source_column(options.schema_definition, &1))
+            |> Enum.join(", ")
+            |> then(&"UPDATE OF #{&1}")
           else
             "UPDATE"
           end
@@ -67,7 +72,10 @@ defmodule EctoWatch.WatcherServer do
 
     columns_sql =
       [options.schema_definition.primary_key | options.extra_columns]
-      |> Enum.map_join(",", &"'#{&1}',row.#{&1}")
+      |> Enum.map_join(
+        ",",
+        &"'#{&1}',row.#{source_column(options.schema_definition, &1)}"
+      )
 
     details =
       watcher_details(%{unique_label: unique_label, repo_mod: repo_mod, options: options})
@@ -129,6 +137,11 @@ defmodule EctoWatch.WatcherServer do
          ),
        options: options
      }}
+  end
+
+  defp source_column(schema_definition, column) do
+    Map.get(schema_definition.column_map, column, column)
+    |> then(&"\"#{&1}\"")
   end
 
   @impl true

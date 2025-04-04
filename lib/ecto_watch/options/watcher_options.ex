@@ -16,6 +16,7 @@ defmodule EctoWatch.Options.WatcherOptions do
       :schema_prefix,
       :table_name,
       :primary_key,
+      :column_map,
       :columns,
       :association_columns,
       :label
@@ -32,6 +33,7 @@ defmodule EctoWatch.Options.WatcherOptions do
       [primary_key] = schema_mod.__schema__(:primary_key)
 
       fields = schema_mod.__schema__(:fields)
+      column_map = Map.new(fields, &{&1, schema_mod.__schema__(:field_source, &1)})
 
       association_columns =
         schema_mod.__schema__(:associations)
@@ -42,6 +44,7 @@ defmodule EctoWatch.Options.WatcherOptions do
         schema_prefix: schema_prefix,
         table_name: table_name,
         primary_key: primary_key,
+        column_map: column_map,
         columns: fields,
         association_columns: association_columns,
         label: schema_mod
@@ -59,6 +62,7 @@ defmodule EctoWatch.Options.WatcherOptions do
         schema_prefix: to_string(schema_prefix),
         table_name: to_string(opts.table_name),
         primary_key: opts.primary_key,
+        column_map: opts[:column_map] || %{},
         columns: opts.columns,
         association_columns: opts[:association_columns] || [],
         label: "#{schema_prefix}|#{opts.table_name}"
@@ -116,6 +120,11 @@ defmodule EctoWatch.Options.WatcherOptions do
         type: {:list, :atom},
         required: false,
         default: []
+      ],
+      column_map: [
+        type: {:map, :atom, :atom},
+        required: false,
+        default: %{}
       ]
     ]
 
