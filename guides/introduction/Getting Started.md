@@ -20,8 +20,8 @@ To use EctoWatch, you need to add it to your supervision tree and specify watche
 
 This will setup:
 
- * triggers in PostgreSQL during application startup
- * an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
+* triggers in PostgreSQL during application startup
+* an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
 
 Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can subscribe to messages like so:
 
@@ -42,6 +42,8 @@ You can also subscribe to individual records:
   EctoWatch.subscribe({User, :updated}, user.id)
   EctoWatch.subscribe({User, :deleted}, user.id)
 ```
+
+**NOTE:** you can't subscribe to the `:inserted` event for specific objects because the primary key's value which you would use to subscribe doesn't exist until the insert happens.
 
 ... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
@@ -73,4 +75,3 @@ Once subscribed, messages can be handled like so (LiveView example are given her
     {:noreply, socket}
   end
 ```
-
