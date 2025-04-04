@@ -10,8 +10,8 @@ Since ecto supports working with tables withoun needed a schema, you may also wa
       %{
         table_name: "comments",
         primary_key: :ID,
-        column_map: %{body: :bodyContent},
         columns: [:title, :body, :author_id, :post_id],
+        column_map: %{body: :bodyContent},
         association_columns: [:author_id, :post_id]
       }, :updated, extra_columns: [:post_id]
     }
@@ -22,10 +22,9 @@ Everything works the same as with a schema, though make sure to specify your ass
 
 Supported keys for configuring a table without a schema:
 
- * `schema_prefix` (optional, defaults to `public`)
- * `table_name` (required)
- * `primary_key` (optional, defaults to `id`)
- * `column_map` (optional, defaults to `%{}`)
- * `columns` (optional, defaults to `[]`)
- * `association_columns` (optional, defaults to `[]`)
-
+* `schema_prefix` (optional, defaults to `public`)
+* `table_name` (required)
+* `primary_key` (optional, defaults to `id`)
+* `columns` (optional, defaults to `[]`)
+* `column_map` (optional, defaults to `%{}`)
+* `association_columns` (optional, defaults to `[]`)
