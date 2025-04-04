@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
-## [0.12.6] - 2024-02-14
+## [0.13.0] - 2024-04-04
+
+### Added
+
+- Added support for `source` option in ecto schema fields (thanks @danwanek-wm)
+- Added `column_map` option for schemaless watchers (thanks @danwanek-wm)
+- `PGUSER`, `PGPASSWORD`, `PGHOST`, and `PGDATABASE` environment variables for testing of library (thanks @danwanek-wm)
+
+## [0.12.6] - 2024-04-01
 
 ### Added
 
