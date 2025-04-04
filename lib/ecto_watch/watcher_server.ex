@@ -184,7 +184,8 @@ defmodule EctoWatch.WatcherServer do
   defp validate_subscription(state, identifier, column) do
     cond do
       match?({_, :inserted}, identifier) && column == state.options.schema_definition.primary_key ->
-        {:error, "Cannot subscribe to primary_key for inserted records"}
+        {:error,
+         "Cannot subscribe to primary_key for inserted records because primary key values aren't created until the insert happens"}
 
       column && not MapSet.member?(state.identifier_columns, column) ->
         {:error, "Column #{column} is not an association column"}

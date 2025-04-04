@@ -819,6 +819,23 @@ defmodule EctoWatchTest do
   end
 
   describe "inserts" do
+    test "Error when trying to subscribe to insert of an ID" do
+      start_supervised!(
+        {EctoWatch,
+         repo: TestRepo,
+         pub_sub: TestPubSub,
+         watchers: [
+           {Thing, :inserted}
+         ]}
+      )
+
+      assert_raise ArgumentError,
+                   ~r/Cannot subscribe to primary_key for inserted records because primary key values aren't created until the insert happens/,
+                   fn ->
+                     EctoWatch.subscribe({Thing, :inserted}, 123)
+                   end
+    end
+
     test "get notification about inserts" do
       start_supervised!({EctoWatch,
        repo: TestRepo,
