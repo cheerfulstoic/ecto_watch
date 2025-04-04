@@ -67,7 +67,7 @@ You can also subscribe to individual records:
   EctoWatch.subscribe({User, :deleted}, user.id)
 ```
 
-**NOTE:** you can't specify the `primary_key` when you're subscribing to an `:inserted` event, if you do this, you will get an error. This is because the `primary_key` is usually created when the record is inserted but you will get the key on the handler callback.
+**NOTE:** you can't subscribe to the `:inserted` event for specific objects because the primary key's value which you would use to subscribe doesn't exist until the insert happens.
 
 ... OR you can subscribe to records by an association column (but the given column must be in the `extra_columns` list for the watcher! See below for more info on the `extra_columns` option):
 
