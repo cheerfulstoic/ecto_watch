@@ -1,6 +1,6 @@
 Getting Started
 
-To use EctoWatch, you need to add it to your supervision tree and specify watchers for Ecto schemas and update types.  It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
+To use EctoWatch, you need to add it to your supervision tree and specify watchers for Ecto schemas and update types. It would look something like this in your `application.ex` file (after `MyApp.Repo` and `MyApp.PubSub`):
 
 ```elixir
   alias MyApp.Accounts.User
@@ -9,6 +9,8 @@ To use EctoWatch, you need to add it to your supervision tree and specify watche
   {EctoWatch,
    repo: MyApp.Repo,
    pub_sub: MyApp.PubSub,
+   # Set to true if using PostgreSQL versions older than 13.3.4
+   legacy_postgres_support?: false,
    watchers: [
      {User, :inserted},
      {User, :updated},
@@ -20,8 +22,8 @@ To use EctoWatch, you need to add it to your supervision tree and specify watche
 
 This will setup:
 
-* triggers in PostgreSQL during application startup
-* an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
+- triggers in PostgreSQL during application startup
+- an Elixir process for each watcher which listens for notifications and broadcasts them via `Phoenix.PubSub`
 
 Then any process (e.g. a GenServer, a LiveView, a Phoenix channel, etc...) can subscribe to messages like so:
 
@@ -75,3 +77,7 @@ Once subscribed, messages can be handled like so (LiveView example are given her
     {:noreply, socket}
   end
 ```
+
+### PostgreSQL Version Compatibility
+
+EctoWatch uses `CREATE OR REPLACE TRIGGER` which was introduced in PostgreSQL 13.3.4. If you're using an older version of PostgreSQL, set the `legacy_postgres_support?: true` option. This will use `DROP TRIGGER IF EXISTS` followed by `CREATE TRIGGER` instead.

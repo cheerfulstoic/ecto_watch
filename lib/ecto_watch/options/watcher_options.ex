@@ -3,7 +3,15 @@ defmodule EctoWatch.Options.WatcherOptions do
 
   alias EctoWatch.Helpers
 
-  defstruct [:schema_definition, :update_type, :label, :trigger_columns, :extra_columns, :debug?]
+  defstruct [
+    :schema_definition,
+    :update_type,
+    :label,
+    :trigger_columns,
+    :extra_columns,
+    :debug?,
+    :legacy_postgres_support?
+  ]
 
   def validate_list(list) do
     Helpers.validate_list(list, &validate/1)
@@ -171,6 +179,13 @@ defmodule EctoWatch.Options.WatcherOptions do
         type: :boolean,
         required: false,
         default: false
+      ],
+      legacy_postgres_support?: [
+        type: :boolean,
+        required: false,
+        default: false,
+        doc:
+          "Set to true to use DROP/CREATE instead of CREATE OR REPLACE for trigger creation (only needed for PostgreSQL versions older than 13.3.4)"
       ]
     ]
 
@@ -216,7 +231,7 @@ defmodule EctoWatch.Options.WatcherOptions do
     new({schema_definition, update_type, []}, debug?)
   end
 
-  def new({schema_definition, update_type, opts}, debug?) do
+  def new({schema_definition, update_type, opts}, debug?, legacy_postgres_support? \\ false) do
     schema_definition = SchemaDefinition.new(schema_definition)
 
     %__MODULE__{
@@ -225,7 +240,8 @@ defmodule EctoWatch.Options.WatcherOptions do
       label: opts[:label],
       trigger_columns: opts[:trigger_columns] || [],
       extra_columns: opts[:extra_columns] || [],
-      debug?: debug? || opts[:debug?]
+      debug?: debug? || opts[:debug?],
+      legacy_postgres_support?: opts[:legacy_postgres_support?] || legacy_postgres_support?
     }
   end
 end
