@@ -13,12 +13,18 @@ Since ecto supports working with tables withoun needed a schema, you may also wa
         columns: [:title, :body, :author_id, :post_id],
         column_map: %{body: :bodyContent},
         association_columns: [:author_id, :post_id]
-      }, :updated, extra_columns: [:post_id]
+      }, :updated, extra_columns: [:post_id], label: :comment_updated_custom
     }
    ]}
 ```
 
 Everything works the same as with a schema, though make sure to specify your association columns if you want to subscribe to an association column.
+
+To subscribe to the newly created watcher use the label that you set before:
+
+```elixir
+EctoWatch.subscribe(:comment_updated_custom)
+```
 
 Supported keys for configuring a table without a schema:
 
