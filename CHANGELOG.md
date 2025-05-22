@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.13.2] - 2024-05-22
+
+### Fixed
+
+- Documentation for using `label` when creating a watcher without an Ecto schema (#48 and #49 / thanks @dv01sw and @ponychicken)
+
 ## [0.13.1] - 2024-04-04
 
 ### Fixed
