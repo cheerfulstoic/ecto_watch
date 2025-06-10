@@ -5,8 +5,6 @@ defmodule EctoWatchTest do
 
   import ExUnit.CaptureLog
 
-  # TODO: Long module names (testing for limits of postgres labels)
-  # TODO: More tests for label option
   # TODO: Pass non-lists to `extra_columns`
   # TODO: Pass strings in list to `extra_columns`
 
@@ -1687,9 +1685,9 @@ defmodule EctoWatchTest do
                label: EctoWatchTest.Thing
              }
 
-      assert details.function_name == "ew_deleted_for_ectowatchtest_thing_func"
-      assert details.trigger_name == "ew_deleted_for_ectowatchtest_thing_trigger"
-      assert details.notify_channel == "ew_deleted_for_ectowatchtest_thing"
+      assert details.function_name == "ew_d_for_ectowatchtest_thing_func"
+      assert details.trigger_name == "ew_d_for_ectowatchtest_thing_trig"
+      assert details.notify_channel == "ew_d_for_ectowatchtest_thing"
 
       details = EctoWatch.details(:thing_custom_event)
 
@@ -1724,7 +1722,7 @@ defmodule EctoWatchTest do
              }
 
       assert details.function_name == "ew_for_thing_custom_event_func"
-      assert details.trigger_name == "ew_for_thing_custom_event_trigger"
+      assert details.trigger_name == "ew_for_thing_custom_event_trig"
       assert details.notify_channel == "ew_for_thing_custom_event"
     end
   end
