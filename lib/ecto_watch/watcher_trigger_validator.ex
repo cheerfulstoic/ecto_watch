@@ -12,8 +12,12 @@ defmodule EctoWatch.WatcherTriggerValidator do
 
   require Logger
 
-  def start_link(_) do
-    Task.start_link(__MODULE__, :run, [nil])
+  def start_link(%EctoWatch.Options{} = options) do
+    if options.validate_triggers? do
+      Task.start_link(__MODULE__, :run, [nil])
+    else
+      :ignore
+    end
   end
 
   defmodule TriggerDetails do
