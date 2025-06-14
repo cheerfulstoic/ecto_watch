@@ -35,7 +35,7 @@ defmodule EctoWatch do
     children = [
       {Postgrex.Notifications, postgrex_notifications_options},
       {EctoWatch.WatcherSupervisor, options},
-      {WatcherTriggerValidator, nil}
+      {WatcherTriggerValidator, options}
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)

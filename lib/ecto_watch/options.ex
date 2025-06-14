@@ -3,12 +3,13 @@ defmodule EctoWatch.Options do
 
   alias EctoWatch.Options.WatcherOptions
 
-  defstruct [:repo_mod, :pub_sub_mod, :watchers, :debug?]
+  defstruct [:repo_mod, :pub_sub_mod, :watchers, :debug?, :validate_triggers?]
 
   def new(opts) do
     %__MODULE__{
       repo_mod: opts[:repo],
       pub_sub_mod: opts[:pub_sub],
+      validate_triggers?: opts[:validate_triggers?],
       watchers:
         Enum.map(opts[:watchers], fn watcher_opts ->
           WatcherOptions.new(watcher_opts, opts[:debug?])
@@ -34,6 +35,11 @@ defmodule EctoWatch.Options do
         type: :boolean,
         required: false,
         default: false
+      ],
+      validate_triggers?: [
+        type: :boolean,
+        required: false,
+        default: true
       ]
     ]
 
