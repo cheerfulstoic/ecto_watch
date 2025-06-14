@@ -78,7 +78,7 @@ defmodule EctoWatch.MixProject do
       "guides/introduction/Testing.md",
       "guides/introduction/Notes.md",
       "guides/howtos/Upgrading Versions.md",
-      "guides/other/Potental TODOs.md",
+      "guides/other/Potential TODOs.md",
       "CHANGELOG.md"
     ]
   end
