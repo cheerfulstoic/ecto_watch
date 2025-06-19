@@ -13,7 +13,7 @@ Often in Elixir applications a `Phoenix.PubSub.broadcast` is inserted into the a
  * Often full records are used which can scale poorly since messages in Elixir are copied in memory when sent.
  * Sometimes records are sent preloaded with different associations in different cases, requiring either careful coordination or sending all associations regardless of where they are needed.
 
-By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* change (even changes from other clients of the database).  EctoWatch also establishes a simple, standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent (makeing for smaller messages).
+By getting updates directly from PostgreSQL, EctoWatch ensures that messages are sent for *every* change (even changes from other clients of the database).  EctoWatch also establishes a simple, standardized set of messages for inserts, updates, and deletes so that there can be consistency across your application.  By default only the id of the record is sent (making for smaller messages).
 
 ## Example use-cases for `EctoWatch`
 
@@ -121,5 +121,5 @@ be found at <https://hexdocs.pm/ecto_watch>.
 [^1]: more info about PubSub message standards:
   - Having a single topic (e.g. `users`) means that all messages are sent to all subscribers, which can be inefficient.
   - Having a topic per record (e.g. `users:1`, `users:2`, etc.) means that a subscriber needs to subscribe to every record, which can be inefficient.
-  - There may be inconsistancy in pluralization of topics (e.g. a `user` vs. `packages` topics) which can be confusing and lead to bugs.
+  - There may be inconsistency in pluralization of topics (e.g. a `user` vs. `packages` topics) which can be confusing and lead to bugs.
   - Having a message that is just `{:updated, id}` doesn't make it clear which schema was updated, using `{schema, id}` doesn't make it clear which operation happened.

@@ -1,6 +1,6 @@
 defmodule EctoWatch.WatcherServer do
   @moduledoc """
-  Internal GenServer for the individiual change watchers which are configured by end users
+  Internal GenServer for the individual change watchers which are configured by end users
 
   Used internally, but you'll see it in your application supervision tree.
   """
