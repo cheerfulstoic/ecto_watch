@@ -9,6 +9,7 @@ defmodule EctoWatch.Options do
     %__MODULE__{
       repo_mod: opts[:repo],
       pub_sub_mod: opts[:pub_sub],
+      debug?: opts[:debug?],
       legacy_postgres_support?: opts[:legacy_postgres_support?],
       watchers:
         Enum.map(opts[:watchers], fn watcher_opts ->
