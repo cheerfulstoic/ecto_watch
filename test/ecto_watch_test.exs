@@ -1886,4 +1886,62 @@ defmodule EctoWatchTest do
       refute log =~ ~r/EctoWatch \| :custom_event/
     end
   end
+
+  describe "trigger creation" do
+    test "uses drop/create trigger when legacy_postgres_support? is true" do
+      log =
+        capture_log(fn ->
+          start_supervised!(
+            {EctoWatch,
+             repo: TestRepo,
+             pub_sub: TestPubSub,
+             legacy_postgres_support?: true,
+             watchers: [
+               {Thing, :inserted}
+             ]}
+          )
+        end)
+
+      assert log =~ "DROP TRIGGER IF EXISTS ew_inserted_for_ectowatchtest_thing_trigger"
+
+      %Postgrex.Result{rows: [["ew_inserted_for_ectowatchtest_thing_trigger"]]} =
+        Ecto.Adapters.SQL.query!(
+          TestRepo,
+          """
+          SELECT trigger_name
+          FROM information_schema.triggers
+          WHERE trigger_name = 'ew_inserted_for_ectowatchtest_thing_trigger'
+          """,
+          []
+        )
+    end
+
+    test "uses create or replace trigger when legacy_postgres_support? is false" do
+      log =
+        capture_log(fn ->
+          start_supervised!(
+            {EctoWatch,
+             repo: TestRepo,
+             pub_sub: TestPubSub,
+             legacy_postgres_support?: false,
+             watchers: [
+               {Thing, :inserted}
+             ]}
+          )
+        end)
+
+      refute log =~ "DROP TRIGGER IF EXISTS ew_inserted_for_ectowatchtest_thing_trigger"
+
+      %Postgrex.Result{rows: [["ew_inserted_for_ectowatchtest_thing_trigger"]]} =
+        Ecto.Adapters.SQL.query!(
+          TestRepo,
+          """
+          SELECT trigger_name
+          FROM information_schema.triggers
+          WHERE trigger_name = 'ew_inserted_for_ectowatchtest_thing_trigger'
+          """,
+          []
+        )
+    end
+  end
 end

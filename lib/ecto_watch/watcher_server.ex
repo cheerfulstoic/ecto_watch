@@ -101,25 +101,35 @@ defmodule EctoWatch.WatcherServer do
       []
     )
 
-    # Can't use the "OR REPLACE" syntax before postgres v13.3.4, so using DROP TRIGGER IF EXISTS
-    # THOUGHT: Could messages be lost during the drop/re-create?
-    Ecto.Adapters.SQL.query!(
-      repo_mod,
-      """
-      DROP TRIGGER IF EXISTS #{details.trigger_name} on \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\";
-      """,
-      []
-    )
+    if options.legacy_postgres_support? do
+      Ecto.Adapters.SQL.query!(
+        repo_mod,
+        """
+        DROP TRIGGER IF EXISTS #{details.trigger_name} on \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\";
+        """,
+        []
+      )
 
-    Ecto.Adapters.SQL.query!(
-      repo_mod,
-      """
-      CREATE TRIGGER #{details.trigger_name}
-        AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
-        EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
-      """,
-      []
-    )
+      Ecto.Adapters.SQL.query!(
+        repo_mod,
+        """
+        CREATE TRIGGER #{details.trigger_name}
+          AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
+          EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
+        """,
+        []
+      )
+    else
+      Ecto.Adapters.SQL.query!(
+        repo_mod,
+        """
+        CREATE OR REPLACE TRIGGER #{details.trigger_name}
+          AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
+          EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
+        """,
+        []
+      )
+    end
 
     notifications_pid = Process.whereis(:ecto_watch_postgrex_notifications)
     {:ok, _notifications_ref} = Postgrex.Notifications.listen(notifications_pid, unique_label)
