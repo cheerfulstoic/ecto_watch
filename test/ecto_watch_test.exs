@@ -5,6 +5,11 @@ defmodule EctoWatchTest do
 
   import ExUnit.CaptureLog
 
+  import Mox
+
+  setup :set_mox_from_context
+  setup :verify_on_exit!
+
   # TODO: Long module names (testing for limits of postgres labels)
   # TODO: More tests for label option
   # TODO: Pass non-lists to `extra_columns`
@@ -74,7 +79,18 @@ defmodule EctoWatchTest do
     end
   end
 
+  defmodule EctoWatchDBStub do
+    @moduledoc false
+
+    @behaviour EctoWatch.DB
+
+    def max_identifier_length(_), do: 63
+    def major_version(_), do: 17
+  end
+
   setup do
+    Mox.stub_with(EctoWatch.DB.Mock, EctoWatchDBStub)
+
     start_supervised!(TestRepo)
 
     start_supervised!({Phoenix.PubSub, name: TestPubSub})
@@ -1888,14 +1904,15 @@ defmodule EctoWatchTest do
   end
 
   describe "trigger creation" do
-    test "uses drop/create trigger when legacy_postgres_support? is true" do
+    test "uses drop/create trigger when PG major version is <= 13" do
+      expect(EctoWatch.DB.Mock, :major_version, fn _ -> 13 end)
+
       log =
         capture_log(fn ->
           start_supervised!(
             {EctoWatch,
              repo: TestRepo,
              pub_sub: TestPubSub,
-             legacy_postgres_support?: true,
              watchers: [
                {Thing, :inserted}
              ]}
@@ -1916,19 +1933,22 @@ defmodule EctoWatchTest do
         )
     end
 
-    test "uses create or replace trigger when legacy_postgres_support? is false" do
+    test "uses create or replace trigger when PG major version is >= 14" do
+      expect(EctoWatch.DB.Mock, :major_version, fn _ -> 14 end)
+
       log =
         capture_log(fn ->
           start_supervised!(
             {EctoWatch,
              repo: TestRepo,
              pub_sub: TestPubSub,
-             legacy_postgres_support?: false,
              watchers: [
                {Thing, :inserted}
              ]}
           )
         end)
+
+      assert log =~ "CREATE OR REPLACE TRIGGER ew_inserted_for_ectowatchtest_thing_trigger"
 
       refute log =~ "DROP TRIGGER IF EXISTS ew_inserted_for_ectowatchtest_thing_trigger"
 

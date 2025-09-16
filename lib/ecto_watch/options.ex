@@ -3,17 +3,16 @@ defmodule EctoWatch.Options do
 
   alias EctoWatch.Options.WatcherOptions
 
-  defstruct [:repo_mod, :pub_sub_mod, :watchers, :debug?, :legacy_postgres_support?]
+  defstruct [:repo_mod, :pub_sub_mod, :watchers, :debug?]
 
   def new(opts) do
     %__MODULE__{
       repo_mod: opts[:repo],
       pub_sub_mod: opts[:pub_sub],
       debug?: opts[:debug?],
-      legacy_postgres_support?: opts[:legacy_postgres_support?],
       watchers:
         Enum.map(opts[:watchers], fn watcher_opts ->
-          WatcherOptions.new(watcher_opts, opts[:debug?], opts[:legacy_postgres_support?])
+          WatcherOptions.new(watcher_opts, opts[:debug?])
         end)
     }
   end
@@ -36,13 +35,6 @@ defmodule EctoWatch.Options do
         type: :boolean,
         required: false,
         default: false
-      ],
-      legacy_postgres_support?: [
-        type: :boolean,
-        required: false,
-        default: false,
-        doc:
-          "Set to true to use DROP/CREATE instead of CREATE OR REPLACE for trigger creation (only needed for PostgreSQL versions older than 13.3.4)"
       ]
     ]
 

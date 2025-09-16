@@ -5,6 +5,7 @@ defmodule EctoWatch.WatcherServer do
   Used internally, but you'll see it in your application supervision tree.
   """
 
+  alias EctoWatch.DB
   alias EctoWatch.Helpers
   alias EctoWatch.Options.WatcherOptions
 
@@ -101,7 +102,17 @@ defmodule EctoWatch.WatcherServer do
       []
     )
 
-    if options.legacy_postgres_support? do
+    if DB.supports_create_or_replace_trigger?(repo_mod) do
+      Ecto.Adapters.SQL.query!(
+        repo_mod,
+        """
+        CREATE OR REPLACE TRIGGER #{details.trigger_name}
+          AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
+          EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
+        """,
+        []
+      )
+    else
       Ecto.Adapters.SQL.query!(
         repo_mod,
         """
@@ -114,16 +125,6 @@ defmodule EctoWatch.WatcherServer do
         repo_mod,
         """
         CREATE TRIGGER #{details.trigger_name}
-          AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
-          EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
-        """,
-        []
-      )
-    else
-      Ecto.Adapters.SQL.query!(
-        repo_mod,
-        """
-        CREATE OR REPLACE TRIGGER #{details.trigger_name}
           AFTER #{update_keyword} ON \"#{options.schema_definition.schema_prefix}\".\"#{options.schema_definition.table_name}\" FOR EACH ROW
           EXECUTE PROCEDURE \"#{options.schema_definition.schema_prefix}\".#{details.function_name}();
         """,
@@ -266,39 +267,34 @@ defmodule EctoWatch.WatcherServer do
   end
 
   defp validate_watcher_details!(watcher_details, watcher_options) do
-    case Ecto.Adapters.SQL.query!(watcher_details.repo_mod, "SHOW max_identifier_length", []) do
-      %Postgrex.Result{rows: [[max_identifier_length]]} ->
-        max_identifier_length = String.to_integer(max_identifier_length)
+    max_identifier_length =
+      DB.max_identifier_length(watcher_details.repo_mod)
 
-        max_byte_size =
-          max(
-            byte_size(watcher_details.function_name),
-            byte_size(watcher_details.trigger_name)
-          )
+    max_byte_size =
+      max(
+        byte_size(watcher_details.function_name),
+        byte_size(watcher_details.trigger_name)
+      )
 
-        if max_byte_size > max_identifier_length do
-          difference = max_byte_size - max_identifier_length
+    if max_byte_size > max_identifier_length do
+      difference = max_byte_size - max_identifier_length
 
-          if watcher_options.label do
-            raise """
-              Error for watcher: #{inspect(identifier(watcher_options))}
+      if watcher_options.label do
+        raise """
+          Error for watcher: #{inspect(identifier(watcher_options))}
 
-              Label is #{difference} character(s) too long to be part of the Postgres trigger name.
-            """
-          else
-            raise """
-              Error for watcher: #{inspect(identifier(watcher_options))}
+          Label is #{difference} character(s) too long to be part of the Postgres trigger name.
+        """
+      else
+        raise """
+          Error for watcher: #{inspect(identifier(watcher_options))}
 
-              Schema module name is #{difference} character(s) too long for the auto-generated Postgres trigger name.
+          Schema module name is #{difference} character(s) too long for the auto-generated Postgres trigger name.
 
-              You may want to use the `label` option
+          You may want to use the `label` option
 
-            """
-          end
-        end
-
-      other ->
-        raise "Unexpected result when querying for max_identifier_length: #{inspect(other)}"
+        """
+      end
     end
   end
 

@@ -10,7 +10,6 @@ To use EctoWatch, you need to add it to your supervision tree and specify watche
    repo: MyApp.Repo,
    pub_sub: MyApp.PubSub,
    # Set to true if using PostgreSQL versions older than 13.3.4
-   legacy_postgres_support?: false,
    watchers: [
      {User, :inserted},
      {User, :updated},
@@ -80,4 +79,4 @@ Once subscribed, messages can be handled like so (LiveView example are given her
 
 ### PostgreSQL Version Compatibility
 
-EctoWatch uses `CREATE OR REPLACE TRIGGER` which was introduced in PostgreSQL 13.3.4. If you're using an older version of PostgreSQL, set the `legacy_postgres_support?: true` option. This will use `DROP TRIGGER IF EXISTS` followed by `CREATE TRIGGER` instead.
+EctoWatch uses `CREATE OR REPLACE TRIGGER` which was introduced in PostgreSQL 13. If you're using an older version of PostgreSQL, `ecto_watch` will automatically use `DROP TRIGGER IF EXISTS` followed by `CREATE TRIGGER` instead.  This can have [potential problems with permissions](https://github.com/cheerfulstoic/ecto_watch/issues/50), so if you experience those it's recommended to upgrade to at least PostgreSQL 14.
