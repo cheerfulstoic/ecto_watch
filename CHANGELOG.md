@@ -7,26 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
-## [0.13.3] - 2024-06-19
+## [0.14.0] - 2025-09-16
+
+### Changed
+
+- Automatically use CREATE TRIGGER / DROP TRIGGER when using postgres <= 13.  When >= 14, use CREATE OR REPLACE TRIGGER (#55 / thanks @ponychicken)
+
+## [0.13.3] - 2025-06-19
 
 ### Fixed
 
 - Documentation typos (#52 / thanks @elfenlaid)
 - `debug?` field not specified correctly (#53 / thanks @elfenlaid)
 
-## [0.13.2] - 2024-05-22
+## [0.13.2] - 2025-05-22
 
 ### Fixed
 
 - Documentation for using `label` when creating a watcher without an Ecto schema (#48 and #49 / thanks @dv01sw and @ponychicken)
 
-## [0.13.1] - 2024-04-04
+## [0.13.1] - 2025-04-04
 
 ### Fixed
 
 - Updated README docs and improved error message for subscribing to `:inserted` for specific IDs (#46 / thanks @ghecho)
 
-## [0.13.0] - 2024-04-04
+## [0.13.0] - 2025-04-04
 
 ### Added
 
@@ -34,25 +40,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `column_map` option for schemaless watchers (#44 / thanks @danwanek-wm)
 - `PGUSER`, `PGPASSWORD`, `PGHOST`, and `PGDATABASE` environment variables for testing of library (#44 / thanks @danwanek-wm)
 
-## [0.12.6] - 2024-04-01
+## [0.12.6] - 2025-04-01
 
 ### Added
 
 - `Testing` guide in docs (#45 / thanks @Bodhert)
 
-## [0.12.5] - 2024-02-14
+## [0.12.5] - 2025-02-14
 
 ### Fixed
 
 - Removed extra broadcast for inserts (#40 / thanks @Zurga)
 
-## [0.12.4] - 2024-02-13
+## [0.12.4] - 2025-02-13
 
 ### Fixed
 
 - Docs typo
 
-## [0.12.3] - 2024-02-13
+## [0.12.3] - 2025-02-13
 
 ### Fixed
 
