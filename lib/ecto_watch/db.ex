@@ -1,4 +1,6 @@
 defmodule EctoWatch.DB do
+  @moduledoc "Mockable simple queries to PostgreSQL"
+
   @callback max_identifier_length(repo_mod :: atom()) :: integer()
   @callback major_version(repo_mod :: atom()) :: integer()
 
@@ -6,16 +8,17 @@ defmodule EctoWatch.DB do
     major_version(repo_mod) >= 14
   end
 
-  # TODO
   def max_identifier_length(repo_mod), do: mod().max_identifier_length(repo_mod)
   def major_version(repo_mod), do: mod().major_version(repo_mod)
 
   defp mod do
-    Application.get_env(:ecto_watch, EctoWatch.DB)[:mod]
+    Application.get_env(:ecto_watch, EctoWatch.DB)[:mod] || EctoWatch.DB.Live
   end
 end
 
 defmodule EctoWatch.DB.Live do
+  @moduledoc "Actual implementation of EctoWatch.DB"
+
   @behaviour EctoWatch.DB
 
   def max_identifier_length(repo_mod) do
