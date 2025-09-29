@@ -155,6 +155,27 @@ defmodule EctoWatchTest do
       []
     )
 
+    Ecto.Adapters.SQL.query!(
+      TestRepo,
+      """
+        CREATE TABLE partitioned_root (
+          id SERIAL,
+          part_key INTEGER NOT NULL,
+          the_string TEXT,
+          PRIMARY KEY (id, part_key)
+        ) PARTITION BY LIST (part_key)
+      """,
+      []
+    )
+
+    Ecto.Adapters.SQL.query!(
+      TestRepo,
+      """
+        CREATE TABLE partitioned_part1 PARTITION OF partitioned_root FOR VALUES IN (1)
+      """,
+      []
+    )
+
     %Postgrex.Result{
       rows: [[already_existing_id1]]
     } =
@@ -727,9 +748,32 @@ defmodule EctoWatchTest do
       Ecto.Adapters.SQL.query!(
         TestRepo,
         """
+        CREATE OR REPLACE FUNCTION \"public\".non_ecto_watch_func()
+          RETURNS trigger AS $trigger$
+          BEGIN
+            RETURN NEW;
+          END;
+          $trigger$ LANGUAGE plpgsql;
+        """,
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
         CREATE TRIGGER ew_some_weird_trigger
           AFTER UPDATE ON \"public\".\"things\" FOR EACH ROW
           EXECUTE PROCEDURE \"public\".ew_some_weird_func();
+        """,
+        []
+      )
+
+      Ecto.Adapters.SQL.query!(
+        TestRepo,
+        """
+        CREATE TRIGGER ew_partition_level_trigger
+          AFTER UPDATE ON \"public\".\"partitioned_part1\" FOR EACH ROW
+          EXECUTE PROCEDURE \"public\".non_ecto_watch_func();
         """,
         []
       )
@@ -783,6 +827,7 @@ defmodule EctoWatchTest do
 
       refute log =~ ~r/non_ecto_watch_trigger/
       refute log =~ ~r/non_ecto_watch_func/
+      refute log =~ ~r/ew_partition_level_trigger/
     end
 
     test "actual cleanup" do
@@ -815,6 +860,7 @@ defmodule EctoWatchTest do
 
       assert "ew_some_weird_trigger" not in values
       assert "non_ecto_watch_trigger" in values
+      assert "ew_partition_level_trigger" in values
 
       %Postgrex.Result{rows: rows} =
         Ecto.Adapters.SQL.query!(
