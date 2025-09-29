@@ -137,6 +137,11 @@ defmodule EctoWatch.WatcherTriggerValidator do
     )
   end
 
+  # When triggers are inserted for a partitioned table,
+  # Postgres will automatically add "clone" triggers for all partitions
+  # https://www.postgresql.org/docs/current/sql-createtrigger.html
+  # So when looking for stray triggers we exclude triggers on
+  # tables that have an entry in pg_inherits (= are partitions)
   defp find_triggers(repo_mod) do
     sql_query(
       repo_mod,
@@ -144,6 +149,18 @@ defmodule EctoWatch.WatcherTriggerValidator do
       SELECT trigger_name, event_object_schema, event_object_table
       FROM information_schema.triggers
       WHERE trigger_name LIKE 'ew_%'
+        AND EXISTS (
+          SELECT 1
+          FROM pg_class c
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+          WHERE n.nspname = event_object_schema
+            AND c.relname = event_object_table
+            AND NOT EXISTS (
+              SELECT 1
+              FROM pg_inherits inh
+              WHERE inh.inhrelid = c.oid
+            )
+        )
       """
     )
     |> Enum.map(fn [name, table_schema, table_name] ->
