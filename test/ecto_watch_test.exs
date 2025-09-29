@@ -730,7 +730,7 @@ defmodule EctoWatchTest do
     end
   end
 
-  describe "trigger cleanup" do
+  describe "trigger validation" do
     setup do
       Ecto.Adapters.SQL.query!(
         TestRepo,
@@ -772,7 +772,7 @@ defmodule EctoWatchTest do
         TestRepo,
         """
         CREATE TRIGGER ew_partition_level_trigger
-          AFTER UPDATE ON \"public\".\"partitioned_part1\" FOR EACH ROW
+          AFTER UPDATE ON \"public\".\"partitioned_root\" FOR EACH ROW
           EXECUTE PROCEDURE \"public\".non_ecto_watch_func();
         """,
         []
@@ -819,15 +819,17 @@ defmodule EctoWatchTest do
           Process.sleep(2_000)
         end)
 
+      IO.puts(log)
+
       assert log =~
-               ~r/Found the following extra EctoWatch triggers:\n\n"ew_some_weird_trigger" in the table "public"\."things"\n\n\.\.\.but they were not specified in the watcher options/
+               ~r/Found the following extra EctoWatch triggers:\n\n"ew_partition_level_trigger" in the table "public"\."partitioned_root"\n"ew_some_weird_trigger" in the table "public"\."things"\n\n\.\.\.but they were not specified in the watcher options/
 
       assert log =~
                ~r/Found the following extra EctoWatch functions:\n\n"ew_some_weird_func" in the schema "public"/
 
       refute log =~ ~r/non_ecto_watch_trigger/
       refute log =~ ~r/non_ecto_watch_func/
-      refute log =~ ~r/ew_partition_level_trigger/
+      refute log =~ ~r/partitioned_part1/
     end
 
     test "actual cleanup" do
@@ -860,7 +862,7 @@ defmodule EctoWatchTest do
 
       assert "ew_some_weird_trigger" not in values
       assert "non_ecto_watch_trigger" in values
-      assert "ew_partition_level_trigger" in values
+      assert "ew_partition_level_trigger" not in values
 
       %Postgrex.Result{rows: rows} =
         Ecto.Adapters.SQL.query!(

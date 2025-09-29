@@ -148,19 +148,14 @@ defmodule EctoWatch.WatcherTriggerValidator do
       """
       SELECT trigger_name, event_object_schema, event_object_table
       FROM information_schema.triggers
-      WHERE trigger_name LIKE 'ew_%'
-        AND EXISTS (
-          SELECT 1
-          FROM pg_class c
-            JOIN pg_namespace n ON c.relnamespace = n.oid
-          WHERE n.nspname = event_object_schema
-            AND c.relname = event_object_table
-            AND NOT EXISTS (
-              SELECT 1
-              FROM pg_inherits inh
-              WHERE inh.inhrelid = c.oid
-            )
-        )
+        JOIN pg_class
+          ON pg_class.relname = event_object_table
+        JOIN pg_namespace
+          ON pg_class.relnamespace = pg_namespace.oid AND
+             pg_namespace.nspname = event_object_schema
+        LEFT JOIN pg_inherits
+          ON pg_inherits.inhrelid = pg_class.oid
+      WHERE trigger_name LIKE 'ew_%' AND pg_inherits.inhrelid IS NULL
       """
     )
     |> Enum.map(fn [name, table_schema, table_name] ->
