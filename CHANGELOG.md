@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.15.0] - 2025-09-30
+
+### Fixed
+
+- Don't output warnings about `ew_*` triggers on partition tables (triggers should be managed via the root table, and warnings will be outputted on those) (#57 / thanks @ponychicken)
+
 ## [0.14.0] - 2025-09-16
 
 ### Changed
