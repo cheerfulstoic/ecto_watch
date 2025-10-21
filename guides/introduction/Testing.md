@@ -1,3 +1,35 @@
+As mentioned in the `README`, it's recommended to not run `EctoWatch` in test mode **by default**:
+
+```elixir
+defmodule MyApp.Application do
+  alias MyApp.Accounts.User
+  alias MyApp.Accounts.Package
+
+  def start(_type, _args) do
+    # ...
+
+    children = [
+      # ...
+      # Recommended to not run in `test` mode
+      if Mix.env != :test do
+        {EctoWatch,
+        repo: MyApp.Repo,
+        pub_sub: MyApp.PubSub,
+        watchers: [
+          # ...
+        ]}
+      else
+        :ignore
+      end
+      # ...
+```
+
+It's recommended to use [start_supervised/2](https://hexdocs.pm/ex_unit/ExUnit.Callbacks.html#start_supervised/2) to start up `EctoWatch` in the tests where it makes sense to do so.
+
+If you want to make sure you're always giving the same configuration in your `Application` as you do to `start_supervised/2`, it is recommended that you create a separate module (potentially a `Supervisor`) to DRY up the logic for creating `EctoWatch` watchers.
+
+# When running `EctoWatch` in test mode
+
 If you need to verify that your application correctly receives `ecto_watch` events, consider the following:  
 
 - **PostgreSQL, not Ecto, emits the notifications.** This means that for your test to capture notifications, the transaction that triggers them **must be committed**.

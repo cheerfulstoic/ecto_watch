@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [0.15.1] - 2025-10-21
+
+### Added
+
+- Documentation describing recommendations for how to use (or not use) `ecto_watch` in test mode (see #51)
+
 ## [0.15.0] - 2025-09-30
 
 ### Fixed
