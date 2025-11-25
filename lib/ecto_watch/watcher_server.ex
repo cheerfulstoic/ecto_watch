@@ -250,7 +250,7 @@ defmodule EctoWatch.WatcherServer do
         "Broadcasting to Phoenix PubSub topic `#{topic}`: #{inspect(message)}"
       )
 
-      Phoenix.PubSub.broadcast(state.pub_sub_mod, topic, message)
+      Phoenix.PubSub.local_broadcast(state.pub_sub_mod, topic, message)
     end
 
     {:noreply, state}

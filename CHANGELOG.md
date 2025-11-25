@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **IMPORTANT NOTE**: Make sure to see the [Upgrading Versions](guides/howtos/Upgrading Versions.md) guide in the [HexDocs documentation](https://hexdocs.pm/ecto_watch) if you're having an issue after upgrading.
 
+## [1.1.0] - 2025-11-25
+
+### Changed
+
+- USE LOCAL BROADCAST INSTEAD OF GLOBAL! This is the sort of thing that perhaps should be done with a "major" version release, but this probably should have been the logic all along. But nobody wrote about using `ecto_watch` in a distributed manner before now. For now the behavior is being changed to `local_broadcast`, but if somebody needs global broadcast, please open an issue and we can consider configuration or some other solution! (thanks @hajto)
+
 ## [1.0.0] - 2025-11-17
 
 ### Changes
