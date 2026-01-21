@@ -123,7 +123,7 @@ The package can be installed from [hex](https://hex.pm/packages/ecto_watch) by a
 ```elixir
 def deps do
   [
-    {:ecto_watch, "~> 0.11.1"}
+    {:ecto_watch, "~> 1.1.0"}
   ]
 end
 ```
